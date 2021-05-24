@@ -4,6 +4,11 @@
 #   - On command
 #   - Check daily
 # - Remove member
+# - ALL - Check SKill Pts(user)
+# - ALL - Check SKill Pts top 10
+# - Set Skill Pts
+# - left discord notification
+# - command categories
 #######
 
 import os
@@ -41,7 +46,7 @@ async def on_ready():
     print(f'{bot.user} has connected to Discord!')
     
 @bot.command(name='add-member', help="Add a new member")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def add_member(ctx, user_rsn, user_discord_id=None, user_time_zone=None, user_notes=None):
     myquery = { "rsn": user_rsn }
     if (user_data.count_documents(myquery) == 0):
@@ -75,7 +80,7 @@ async def add_member(ctx, user_rsn, user_discord_id=None, user_time_zone=None, u
 @bot.command(name='add-existing-member', help="""Add an existing member. 
 Date format must be YYYY-MM-dd
 Membership level is 0-6 where 0 is smiley, 6 is leader""")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def add_existing_member(ctx, user_rsn, join_date, membership_level=None, user_discord_id=None, user_time_zone=None, user_notes=None):
     myquery = { "rsn": user_rsn }
     if (user_data.count_documents(myquery) == 0):
@@ -112,7 +117,7 @@ async def add_existing_member(ctx, user_rsn, join_date, membership_level=None, u
         await ctx.channel.send(f'{user_rsn} already exists. Please use update command. Run `!help update-user` for more details.')
 
 @bot.command(name='view-member', help="View member info by rsn")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def view_member(ctx, user_rsn):
     myquery = { "rsn": user_rsn }
     user = user_data.find_one(myquery)
@@ -133,7 +138,7 @@ async def view_member(ctx, user_rsn):
 # TODO - make this better
 
 @bot.command(name='update-member', help="""Update an existing member""")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def update_member(ctx, user_rsn, update_key, update_value):
     # Only allow updates on certain keys, this prevents new keys from being added
     print(f'updating user {user_rsn}. Key {update_key} will be set to value {update_value}.')
@@ -145,7 +150,7 @@ async def update_member(ctx, user_rsn, update_key, update_value):
         await ctx.channel.send(f'Updated user {user_rsn}. Key {update_key} set to value {update_value}.')
 
 @bot.command(name='set-active', help="""Mark a member as active or inactive.""")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def set_active(ctx, user_rsn, is_active):
     if is_active.lower() in true_values:
         inactive = False
@@ -155,7 +160,7 @@ async def set_active(ctx, user_rsn, is_active):
     await ctx.channel.send(f'{user_rsn} inactive flag set to {inactive}')
 
 @bot.command(name='set-onleave', help="""Mark a member as on leave or returned""")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def set_active(ctx, user_rsn, is_onleave):
     if is_onleave.lower() in true_values:
         onleave = True
@@ -165,7 +170,7 @@ async def set_active(ctx, user_rsn, is_onleave):
     await ctx.channel.send(f'{user_rsn} on_leave flag set to {onleave}')
 
 @bot.command(name='list-members', help="""Print out a list of all members""")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def list_members(ctx):
     all_members = user_data.find({}) # TODO - keep an eye on how expensive this is
 
@@ -179,13 +184,13 @@ async def list_members(ctx):
     await ctx.channel.send(f'{userlist}')
 
 @bot.command(name='list-inactive', help="""Print out a list of all inactive members""")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def list_inactive(ctx):
     inactive_members = queryMembers("inactive", True)
     await ctx.channel.send(f'{inactive_members}')
 
 @bot.command(name='list-onleave', help="""Print out a list of all members marked on leave""")
-# @commands.has_role('admin')
+# @commands.has_role('Leader')
 async def list_onleave(ctx):
     on_leave_members = queryMembers("on_leave", True)
     await ctx.channel.send(f'{on_leave_members}')
@@ -245,75 +250,4 @@ def queryMembers(key, value):
 def updateUsersCounter(new_value):
     counters.update({}, {"$set":{"users":f'{new_value}'}})
 
-
-
-
-
-
-
-
-
-
-
-
-
-    # guild = ctx.guild
-    # existing_channel = discord.utils.get(guild.channels, name=channel_name)
-    # if not existing_channel:
-    #     print(f'Creating a new channel: {channel_name}')
-    #     await guild.create_text_channel(channel_name)
-
-# @bot.event
-# async def on_message(ctx): 
-#     print(f"{ctx.channel}: {ctx.author}: {ctx.author.name}: {ctx.content}")
-#     myquery = { "_id": ctx.author.id }
-#     if (collection.count_documents(myquery) == 0):
-#         if "python" in str(ctx.content.lower()):
-#             post = {"_id": ctx.author.id, "score": 1}
-#             collection.insert_one(post)
-#             await ctx.channel.send('accepted!')
-#         elif "discord" in str(ctx.content.lower()):
-#             post = {"_id": ctx.author.id, "score": 1}
-#             collection.insert_one(post)
-#             await ctx.channel.send('accepted!')
-#         elif "lego" in str(ctx.content.lower()):
-#             post = {"_id": ctx.author.id, "score": 1}
-#             collection.insert_one(post)
-#             await ctx.channel.send('accepted!')
-#         elif "code" in str(ctx.content.lower()):
-#             post = {"_id": ctx.author.id, "score": 1}
-#             collection.insert_one(post)
-#             await ctx.channel.send('accepted!')
-#     else:
-#         if "python" in str(ctx.content.lower()):
-#             query = {"_id": ctx.author.id}
-#             user = collection.find(query)
-#             for result in user:
-#                 score = result["score"]
-#             score = score + 1
-#             collection.update_one({"_id":ctx.author.id}, {"$set":{"score":score}})
-#             await ctx.channel.send('accepted!')
-#         elif "discord" in str(ctx.content.lower()):
-#             query = {"_id": ctx.author.id}
-#             user = collection.find(query)
-#             for result in user:
-#                 score = result["score"]
-#             score = score + 1
-#             collection.update_one({"_id":ctx.author.id}, {"$set":{"score":score}})
-#             await ctx.channel.send('accepted!')
-#         elif "lego" in str(ctx.content.lower()):
-#             query = {"_id": ctx.author.id}
-#             user = collection.find(query)
-#             for result in user:
-#                 score = result["score"]
-#             score = score + 1
-#             collection.update_one({"_id":ctx.author.id}, {"$set":{"score":score}})
-#             await ctx.channel.send('accepted!')
-#         elif "code" in str(ctx.content.lower()):
-#             query = {"_id": ctx.author.id}
-#             for result in user:
-#                 score = result["score"]
-#             score = score + 1
-#             collection.update_one({"_id":ctx.author.id}, {"$set":{"score":score}})
-#             await ctx.channel.send('accepted!')
 bot.run(TOKEN)
