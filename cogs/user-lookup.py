@@ -10,7 +10,7 @@ class userLookup(commands.Cog):
     @commands.command(name='list-members', help="""Print out a list of all members""")
     # @commands.has_role('Leader')
     async def list_members(self, ctx):
-        all_members = self.bot.user_data.find({}) # TODO - keep an eye on how expensive this is
+        all_members = self.bot.user_data.find({}, { "_id": 1, "rsn": 1, "discord_id": 1})
 
         lbl_id = "ID".center(6)
         lbl_rsn = "RSN".center(23)

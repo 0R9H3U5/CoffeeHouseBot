@@ -1,48 +1,45 @@
+#pylint: disable=E1101
+
 #######
 # TODO LIST:
 # - Automate disc rank ups
 #   - On command
 #   - Check daily
 # - Remove member
-# - ALL - Check SKill Pts(user)
 # - ALL - Check SKill Pts top 10
 # - Set Skill Pts
 # - left discord notification
-# - Command categories
 # - Help Docs
 # - WoM Integration
-# - Refactor into better structure
 # - Google Sheets integration/better way to get whole mem list
-# - update cog command
+# - SOTW/BOTW Poll
+# - lottery entry tracking and picker
+# - blocklist for ppl abusing bot
 #######
-
+import json
 import os
 import ssl
 import discord
 import logging
+import urllib.parse
 from discord.ext import commands
 from dotenv import load_dotenv
-
-import pymongo
 from pymongo import MongoClient
-
-import urllib.parse
 
 __version__ = '0.1.0'
 
 log = logging.getLogger('discord')
-logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
+logging.basicConfig(level=os.getenv('LOGLEVEL', 'INFO'))
 
 class CoffeeHouseBot(commands.AutoShardedBot):
-    __prefix__ = '!'
-    __datetime_fmt__ = "%Y-%m-%d"
-    __mem_level_names__ = ["Friend", "Recruit", "Corporal", "Sergeant", "Lieutenant", "General", "Leader"]
-    __updateable_keys__ = ["rsn", "discord_id", "membership_level", "join_date", "special_status", "former_rsn", "alt_rsn", "on_leave", "inactive", "skill_pts", "notes"]
-    __true_values__ = ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'ye']
-    __cogs__ = ['cogs.admin', 'cogs.general', 'cogs.user-lookup', 'cogs.skill-comp']
-
     def __init__(self, db_user, db_pw):
-        self.command_prefix='!'
+        intents = discord.Intents.default()
+        intents.presences = True
+        intents.members = True
+        
+        # read in configs
+        with open("config.json") as json_data_file:
+            self.configs = json.load(json_data_file)
 
         # Connect to db
         mongo_url = "mongodb+srv://" + db_user + ":" + urllib.parse.quote_plus(db_pw) + "@coffee-house-member-dat.p3irz.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
@@ -51,7 +48,8 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         self.user_data = db["user_data"]
         self.counters = db["counters"]
         self.skill_comp = db["skill_comp"]
-        super().__init__(command_prefix=CoffeeHouseBot.__prefix__)
+
+        super().__init__(command_prefix=self.configs["command_prefix"], intents=intents)
 
     async def on_ready(self):
         print(f'{bot.user} has connected to Discord!')
@@ -60,12 +58,13 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         # log.info(f'Dev Mode: {self.dev} | Docker: {self.docker}')
         log.info(f'Discord Version: {discord.__version__}')
         log.info(f'Bot Version: {__version__}')
-        for cog in CoffeeHouseBot.__cogs__:
+        for cog in self.configs["cogs"]:
             try:
                 print(f'Loading cog {cog}')
                 self.load_extension(cog)
             except Exception:
-                log.warning(f'Couldn\'t load cog {cog}')
+                log.warning(f'Couldn\'t load cog {cog}')        
+        self.get_cog('admin').update_disc_roles.start()
       
     async def on_message(self, message):
         # if message.author.bot or message.author.id in loadconfig.__blacklist__:
@@ -74,6 +73,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             await message.author.send(':x: Sorry, but I don\'t accept commands through direct messages! Please use the `#bots` channel of your corresponding server!')
             return
         await self.process_commands(message)    
+
 
     # Use the current membership level to find when the next promotion is due
     def getNextMemLvlDate(self, user):
@@ -87,7 +87,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
     # Get the name of the next membership level
     def getNextMemLvl(self, current):
         if (int(current) < 4):
-            return CoffeeHouseBot.__mem_level_names__[int(current) + 1]
+            return self.configs["mem_level_names"][int(current) + 1]
         else:
             return None
 
@@ -121,6 +121,9 @@ class CoffeeHouseBot(commands.AutoShardedBot):
     # update the user counter to the specified value
     def updateUsersCounter(self, new_value):
         self.counters.update({}, {"$set":{"users":f'{new_value}'}})
+
+    def getConfigValue(self, key):
+        return self.configs[key]
 
 if __name__ == '__main__':
     load_dotenv()

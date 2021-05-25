@@ -9,6 +9,7 @@ class skillComp(commands.Cog):
 
     @commands.command(name='skill-comp-points', help="""Fetch the skill comp points for the user""")
     async def skill_comp_points(self, ctx):
+        print("test")
         user = await self.bot.getUserFromAuthor(ctx)
         if user is not None:
             await  ctx.channel.send(f"**{ctx.author.name}** you currently have **{user['skill_comp']['points']}** points from skill week competitions.")
