@@ -156,6 +156,10 @@ class admin(commands.Cog):
         await self.update_member(ctx, user_rsn, "on_leave", onleave)
         await ctx.channel.send(f'{user_rsn} on_leave flag set to {onleave}')
 
+    # @commands.command(name="update-command-set", help="Reloads commands for the specified cog")
+    # async def update_command_set(self, ctx, cog_name):
+    #     await self.bot.reload_cog(cog_name)
+
 
 def setup(bot):
     bot.add_cog(admin(bot))

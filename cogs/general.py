@@ -9,16 +9,7 @@ class general(commands.Cog):
 
     @commands.command(name="promotion-when", help="Returns next promotion date of requesting member")
     async def promotion_when(self, ctx):
-        uid = f'{ctx.author.name}#{ctx.author.discriminator}'
-        myquery = { "discord_id": uid }
-        try:
-            user = self.bot.user_data.find_one(myquery)
-            if (user is None):
-                await ctx.channel.send(f"I didn't find you in the member database. If you wish to apply see #applications") # TODO - actually link channel
-                return
-        except:
-            await ctx.channel.send(f"I didn't find you in the member database. If you wish to apply see #applications") # TODO - actually link channel
-            return
+        user = await self.bot.getUserFromAuthor(ctx)
 
         next_mem_lvl_date = self.bot.getNextMemLvlDate(user)
         next_mem_lvl = self.bot.getNextMemLvl(user['membership_level'])

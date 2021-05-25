@@ -13,6 +13,7 @@
 # - WoM Integration
 # - Refactor into better structure
 # - Google Sheets integration/better way to get whole mem list
+# - update cog command
 #######
 
 import os
@@ -32,13 +33,13 @@ __version__ = '0.1.0'
 log = logging.getLogger('discord')
 logging.basicConfig(level=os.environ.get('LOGLEVEL', 'INFO'))
 
-class CoffeeHouseBot(commands.Bot):
+class CoffeeHouseBot(commands.AutoShardedBot):
     __prefix__ = '!'
     __datetime_fmt__ = "%Y-%m-%d"
     __mem_level_names__ = ["Friend", "Recruit", "Corporal", "Sergeant", "Lieutenant", "General", "Leader"]
     __updateable_keys__ = ["rsn", "discord_id", "membership_level", "join_date", "special_status", "former_rsn", "alt_rsn", "on_leave", "inactive", "skill_pts", "notes"]
     __true_values__ = ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'ye']
-    __cogs__ = ['cogs.admin', 'cogs.general', 'cogs.user-lookup']
+    __cogs__ = ['cogs.admin', 'cogs.general', 'cogs.user-lookup', 'cogs.skill-comp']
 
     def __init__(self, db_user, db_pw):
         self.command_prefix='!'
@@ -72,8 +73,7 @@ class CoffeeHouseBot(commands.Bot):
         if isinstance(message.channel, discord.DMChannel):
             await message.author.send(':x: Sorry, but I don\'t accept commands through direct messages! Please use the `#bots` channel of your corresponding server!')
             return
-        await self.process_commands(message)
-    
+        await self.process_commands(message)    
 
     # Use the current membership level to find when the next promotion is due
     def getNextMemLvlDate(self, user):
@@ -104,6 +104,19 @@ class CoffeeHouseBot(commands.Bot):
             userlist = userlist + f"{mem['_id']}   {mem['rsn']}   {mem['discord_id']}\r\n"
         return userlist
 
+    async def getUserFromAuthor(self, ctx):
+        uid = f'{ctx.author.name}#{ctx.author.discriminator}'
+        myquery = { "discord_id": uid }
+        log.info(f'finding for user with query {myquery}')
+        try:
+            user = self.user_data.find_one(myquery)
+            if (user is None):
+                await ctx.channel.send(f"1 I didn't find you in the member database. If you wish to apply see `#applications`") # TODO - actually link channel
+                return None
+            return user
+        except:
+            await ctx.channel.send(f"1 I didn't find you in the member database. If you wish to apply see `#applications`") # TODO - actually link channel
+            return None
 
     # update the user counter to the specified value
     def updateUsersCounter(self, new_value):
