@@ -9,14 +9,14 @@ class general(commands.Cog):
 
     @commands.command(name="promotion-when", help="Returns next promotion date of requesting member")
     async def promotion_when(self, ctx):
-        user = await self.bot.getUserFromAuthor(ctx)
+        user = self.bot.selectOne(f"SELECT discord_id, membership_level, join_date FROM member WHERE discord_id_num={ctx.author.id}")
 
-        next_mem_lvl_date = self.bot.getNextMemLvlDate(user)
-        next_mem_lvl = self.bot.getNextMemLvl(user['membership_level'])
-        if next_mem_lvl is None:
-            await ctx.channel.send(f"{ctx.author.name}, you are are already eligible for all ranks.")
+        next_mem_lvl_date = self.bot.getNextMemLvlDate(user[1], user[2])
+        if next_mem_lvl_date is None:
+            await ctx.channel.send(f"**{ctx.author.name}** you are are already eligible for all ranks.")
         else:
-            await ctx.channel.send(f"{ctx.author.name}, you are eligible for promotion to {next_mem_lvl} on {next_mem_lvl_date[:10]}.")
+            next_mem_lvl = self.bot.getNextMemLvl(user[1])
+            await ctx.channel.send(f"**{ctx.author.name}** you are eligible for promotion to **{next_mem_lvl}** on **{next_mem_lvl_date[:10]}**.")
 
 def setup(bot):
     bot.add_cog(general(bot))

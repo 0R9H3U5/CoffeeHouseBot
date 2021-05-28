@@ -19,12 +19,13 @@
 import json
 import os
 import ssl
+import datetime
 import discord
 import logging
 import urllib.parse
 from discord.ext import commands
 from dotenv import load_dotenv
-from pymongo import MongoClient
+import psycopg2
 
 __version__ = '0.1.0'
 
@@ -32,7 +33,7 @@ log = logging.getLogger('discord')
 logging.basicConfig(level=os.getenv('LOGLEVEL', 'INFO'))
 
 class CoffeeHouseBot(commands.AutoShardedBot):
-    def __init__(self, db_user, db_pw):
+    def __init__(self):
         intents = discord.Intents.default()
         intents.presences = True
         intents.members = True
@@ -42,12 +43,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             self.configs = json.load(json_data_file)
 
         # Connect to db
-        mongo_url = "mongodb+srv://" + db_user + ":" + urllib.parse.quote_plus(db_pw) + "@coffee-house-member-dat.p3irz.mongodb.net/myFirstDatabase?retryWrites=true&w=majority"
-        cluster = MongoClient(mongo_url, ssl_cert_reqs=ssl.CERT_NONE)
-        db = cluster["user_data"]
-        self.user_data = db["user_data"]
-        self.counters = db["counters"]
-        self.skill_comp = db["skill_comp"]
+        self.getDatabaseConnection()
 
         super().__init__(command_prefix=self.configs["command_prefix"], intents=intents)
 
@@ -64,7 +60,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 self.load_extension(cog)
             except Exception:
                 log.warning(f'Couldn\'t load cog {cog}')        
-        self.get_cog('admin').update_disc_roles.start()
+        # self.get_cog('admin').update_disc_roles.start()
       
     async def on_message(self, message):
         # if message.author.bot or message.author.id in loadconfig.__blacklist__:
@@ -76,13 +72,23 @@ class CoffeeHouseBot(commands.AutoShardedBot):
 
 
     # Use the current membership level to find when the next promotion is due
-    def getNextMemLvlDate(self, user):
-        current_lvl = user['membership_level']
-        next_lvl = int(current_lvl) + 1
+    def getNextMemLvlDate(self, mem_lvl, join_date):
+        next_lvl = int(mem_lvl) + 1
         if (next_lvl < 4):
-            return user[f'l{next_lvl}']
+            today = datetime.date.today()
+            days_as_member = today - join_date
+            if days_as_member < 14: # 2 weeks
+                return join_date + datetime.timedelta(14)
+            elif days_as_member < 84: # 12 weeks
+                return join_date + datetime.timedelta(84)
+            if days_as_member < 182: # 26 weeks
+                return join_date + datetime.timedelta(182)
+            elif days_as_member < 365: # 52 weeks
+                return join_date + datetime.timedelta(365)
+            else:
+                return None
         else:
-            return 'Eligible for any membership level'
+            return None
 
     # Get the name of the next membership level
     def getNextMemLvl(self, current):
@@ -91,45 +97,59 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         else:
             return None
 
-    # fetch the user counter and pass it back incremented by one
-    def getNextUserId(self):
-        # Get the user count and add 1 for unique id
-        counts = self.counters.find_one()
-        return int(counts['users']) + 1
-
     def queryMembers(self, key, value):
-        users = self.user_data.find({ key : value })
+        users = self.cursor.execute("SELECT _id, rsn, discord_if from member")
         userlist = " ID |          RSN          |     Discord ID\r\n"
         for mem in users:
             userlist = userlist + f"{mem['_id']}   {mem['rsn']}   {mem['discord_id']}\r\n"
         return userlist
 
-    async def getUserFromAuthor(self, ctx):
-        uid = f'{ctx.author.name}#{ctx.author.discriminator}'
-        myquery = { "discord_id": uid }
-        log.info(f'finding for user with query {myquery}')
-        try:
-            user = self.user_data.find_one(myquery)
-            if (user is None):
-                await ctx.channel.send(f"1 I didn't find you in the member database. If you wish to apply see `#applications`") # TODO - actually link channel
-                return None
-            return user
-        except:
-            await ctx.channel.send(f"1 I didn't find you in the member database. If you wish to apply see `#applications`") # TODO - actually link channel
-            return None
-
-    # update the user counter to the specified value
-    def updateUsersCounter(self, new_value):
-        self.counters.update({}, {"$set":{"users":f'{new_value}'}})
-
     def getConfigValue(self, key):
         return self.configs[key]
+
+    def getDatabaseConnection(self):
+        db_name = self.getConfigValue("db_name")
+        db_user = self.getConfigValue("db_user")
+        db_pw = self.getConfigValue("db_pw")
+        db_host = self.getConfigValue("db_host")
+        self.conn = psycopg2.connect(dbname=db_name, user=db_user, password=db_pw, host=db_host, port='5432', sslmode='require')
+        print(f'Successful connection to database - {self.conn.get_dsn_parameters()}')
+
+    def selectMany(self, query):
+        # TODO check if connection is active
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(query)
+            return cursor.fetchall()
+        except (Exception, psycopg2.Error) as error:
+            print("Error while fetching data from PostgreSQL", error)
+        finally:
+            cursor.close()
+    
+    def selectOne(self, query):
+        # TODO check if connection is active
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(query)
+            return cursor.fetchone()
+        except (Exception, psycopg2.Error) as error:
+            print("Error while fetching data from PostgreSQL", error)
+        finally:
+            cursor.close()
+            
+    def execute_query(self, query):
+        # TODO check if connection is active
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute(query)
+            self.conn.commit()
+        except (Exception, psycopg2.Error) as error:
+            print("Error while running query", error)
+        finally:
+            cursor.close()
 
 if __name__ == '__main__':
     load_dotenv()
     TOKEN = os.getenv('DISCORD_TOKEN')
-    DB_USER = os.getenv('DB_USER')
-    DB_USER_PW = os.getenv('DB_USER_PW')
-
-    bot = CoffeeHouseBot(DB_USER, DB_USER_PW)
+    bot = CoffeeHouseBot()
     bot.run(TOKEN)
