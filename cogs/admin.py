@@ -180,42 +180,43 @@ class admin(commands.Cog):
     #     # Update all discord usernames using discord id
 
 #TODO
-    # @loop(hours=1)
-    # async def update_disc_roles(self):
-    #     ###
-    #     ## How it will work:
-    #     ## Grab users and check their rank
-    #     ## Check next rank-up date
-    #     ##   if rank-up date has passed update role on disc 
-    #     ##       (up to 3nana, after that only update if mem_level doesn't match disc)
-    #     ##   add to list mems needing osrs rank-up
-    #     ## Print out list of rank-ups to leaders-chat
-    #     #
-    #     # Do we want to store list in database and require confirmation to remove?
-    #     all_members = self.bot.user_data.find(
-    #         {},
-    #         {
-    #             "rsn": 1,
-    #             "discord_id_num": 1,
-    #             "membership_level": 1,
-    #             "l1": 1,
-    #             "l2": 1,
-    #             "l3": 1,
-    #             "l4": 1
-    #         }
-    #     )
-    #     for guild in self.bot.guilds:
-    #         if guild.id == self.bot.getConfigValue("test_server_guild_id"):
-    #             this_guild = guild
-    #     for mem in all_members:
-    #         if int(mem["membership_level"]) < 4:
-    #             # has room to still be promoted
-    #             usr = this_guild.fetch_member(mem["discord_id_num"])
-    #             if usr is not None:
-    #                 print(f'{usr.roles}')
-    #             else:
-    #                 print(f'Unable to find **{mem["rsn"]}** on server using id {mem["discord_id_num"]}')
-    #     print("bitch im a loop!")
+    @loop(seconds=90)
+    async def update_disc_roles(self):
+        ###
+        ## How it will work:
+        ## Grab users and check their rank
+        ## Check next rank-up date
+        ##   if rank-up date has passed update role on disc 
+        ##       (up to 3nana, after that only update if mem_level doesn't match disc)
+        ##   add to list mems needing osrs rank-up
+        ## Print out list of rank-ups to leaders-chat
+        #
+        # Do we want to store list in database and require confirmation to remove?
+        # print('hello')
+        all_members = self.bot.selectMany("SELECT rsn, discord_id_num, membership_level, join_date FROM member")
+        # print(f'{all_members}')
+        if (all_members is not None):
+            discord_roles = self.bot.getConfigValue("discord_role_names")            
+            for guild in self.bot.guilds:
+                if guild.id == self.bot.getConfigValue("test_server_guild_id"):
+                    this_guild = guild
+                    print(f"Roles: {this_guild.roles}")
+            for mem in all_members:
+                if int(mem[2]) < 3:
+                    # has room to still be promoted
+                    expected_lvl_min = self.bot.getExpectedMemLvlByJoinDate(mem[3])
+                    try:
+                        usr = await this_guild.fetch_member(mem[1])
+                    except:
+                        print(f'Unable to find {mem[0]} on server using id {mem[1]}')
+                    print(f'{usr}\'s roles: {usr.roles}')
+                    role_ok = False
+                    for role in usr.roles:
+                        if role.name.lower() == discord_roles[expected_lvl_min].lower():
+                            role_ok = True
+                    if not role_ok:
+                        print(f"{usr} is currently role {discord_roles[mem[2]]}({mem[2]}) and will be promoted to role {discord_roles[expected_lvl_min]}({expected_lvl_min})")
+                        # await usr.add_roles(this_guild.)
 
 def setup(bot):
     bot.add_cog(admin(bot))
