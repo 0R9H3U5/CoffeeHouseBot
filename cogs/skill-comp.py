@@ -27,5 +27,5 @@ class skillComp(commands.Cog):
     #             unquoted_win = win.replace('"','')
     #             await ctx.channel.send(f" - {unquoted_win.strip()}")
 
-def setup(bot):
-    bot.add_cog(skillComp(bot))
+async def setup(bot):
+    await bot.add_cog(skillComp(bot))

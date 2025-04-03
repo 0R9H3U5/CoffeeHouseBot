@@ -10,6 +10,7 @@ class userLookup(commands.Cog):
     @commands.command(name='list-members', help="""Print out a list of all members""")
     # @commands.has_role('Leader')
     async def list_members(self, ctx):
+        print("list_members")
         all_members = self.bot.selectMany("SELECT _id, rsn, discord_id FROM member")        
         await ctx.channel.send(f'{self.format_user_list(all_members)}')
 
@@ -36,5 +37,5 @@ class userLookup(commands.Cog):
             userlist = userlist + f"{memid} {rsn}    {mem[2]}\r\n"
         return userlist
 
-def setup(bot):
-    bot.add_cog(userLookup(bot))
+async def setup(bot):
+    await bot.add_cog(userLookup(bot))

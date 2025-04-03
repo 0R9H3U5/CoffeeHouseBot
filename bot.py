@@ -5,6 +5,7 @@
 # - Automate disc rank ups
 #   - On command
 #   - Check daily
+# - add lookup by tagging
 # - Remove member
 # - ALL - Check SKill Pts top 10
 # - Set Skill Pts
@@ -15,6 +16,7 @@
 # - SOTW/BOTW Poll
 # - lottery entry tracking and picker
 # - blocklist for ppl abusing bot
+# - notify of comp lead change
 #######
 import json
 import os
@@ -22,7 +24,7 @@ import ssl
 import datetime
 import discord
 import logging
-import urllib.parse
+import urllib.parse 
 from discord.ext import commands
 from dotenv import load_dotenv
 import psycopg2
@@ -37,6 +39,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         intents = discord.Intents.default()
         intents.presences = True
         intents.members = True
+        intents.message_content = True
         
         # read in configs
         with open("config.json") as json_data_file:
@@ -57,14 +60,19 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         for cog in self.configs["cogs"]:
             try:
                 print(f'Loading cog {cog}')
-                self.load_extension(cog)
+                await self.load_extension(cog)
             except Exception:
                 log.warning(f'Couldn\'t load cog {cog}')        
-        # self.get_cog('admin').update_disc_roles.start()
-      
+        # self.get_cog('admin').update_disc_roles.start() # TODO - broken - i think this was just for command testing
+    
+    async def on_command(self, ctx):
+        log.info(f'recieved command: {ctx.message}')
+        msg = ctx.message
+
     async def on_message(self, message):
         # if message.author.bot or message.author.id in loadconfig.__blacklist__:
         #     return
+        log.info(f'recieved message: {message}')
         if isinstance(message.channel, discord.DMChannel):
             await message.author.send(':x: Sorry, but I don\'t accept commands through direct messages! Please use the `#bots` channel of your corresponding server!')
             return
@@ -81,7 +89,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 return join_date + datetime.timedelta(14)
             elif days_as_member < 84: # 12 weeks
                 return join_date + datetime.timedelta(84)
-            if days_as_member < 182: # 26 weeks
+            elif days_as_member < 182: # 26 weeks
                 return join_date + datetime.timedelta(182)
             elif days_as_member < 365: # 52 weeks
                 return join_date + datetime.timedelta(365)
@@ -89,6 +97,21 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 return None
         else:
             return None
+
+    # Use the current membership level to find when the next promotion is due
+    def getExpectedMemLvlByJoinDate(self, join_date):
+        today = datetime.date.today()
+        days_as_member = today - join_date
+        if days_as_member < datetime.timedelta(days = 14): # Under 2 weeks
+            return 0
+        elif days_as_member > datetime.timedelta(days = 14) and days_as_member < datetime.timedelta(days = 84): # Between 2 weeks and 12 weeks
+            return 1
+        elif days_as_member > datetime.timedelta(days = 84) and days_as_member < datetime.timedelta(days = 182): #  Between 12 weeks and 26 weeks
+            return 2
+        # elif days_as_member > datetime.timedelta(days = 182) and days_as_member < datetime.timedelta(days = 365): # Between 26 weeks and 52 weeks
+        #     return 3
+        else:
+            return 3
 
     # Get the name of the next membership level
     def getNextMemLvl(self, current):
@@ -112,7 +135,8 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         db_user = self.getConfigValue("db_user")
         db_pw = self.getConfigValue("db_pw")
         db_host = self.getConfigValue("db_host")
-        self.conn = psycopg2.connect(dbname=db_name, user=db_user, password=db_pw, host=db_host, port='5432', sslmode='require')
+        # self.conn = psycopg2.connect(dbname=db_name, user=db_user, password=db_pw, host=db_host, port='5432', sslmode='require')
+        self.conn = psycopg2.connect(f'postgres://{db_user}:{db_pw}@{db_host}:25640/{db_name}?sslmode=require')
         print(f'Successful connection to database - {self.conn.get_dsn_parameters()}')
 
     def selectMany(self, query):
