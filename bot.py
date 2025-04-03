@@ -39,6 +39,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         intents = discord.Intents.default()
         intents.presences = True
         intents.members = True
+        intents.message_content = True
         
         # read in configs
         with open("config.json") as json_data_file:
@@ -59,14 +60,19 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         for cog in self.configs["cogs"]:
             try:
                 print(f'Loading cog {cog}')
-                self.load_extension(cog)
+                await self.load_extension(cog)
             except Exception:
                 log.warning(f'Couldn\'t load cog {cog}')        
-        self.get_cog('admin').update_disc_roles.start()
-      
+        # self.get_cog('admin').update_disc_roles.start() # TODO - broken - i think this was just for command testing
+    
+    async def on_command(self, ctx):
+        log.info(f'recieved command: {ctx.message}')
+        msg = ctx.message
+
     async def on_message(self, message):
         # if message.author.bot or message.author.id in loadconfig.__blacklist__:
         #     return
+        log.info(f'recieved message: {message}')
         if isinstance(message.channel, discord.DMChannel):
             await message.author.send(':x: Sorry, but I don\'t accept commands through direct messages! Please use the `#bots` channel of your corresponding server!')
             return

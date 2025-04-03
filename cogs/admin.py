@@ -180,7 +180,7 @@ class admin(commands.Cog):
     #     # Update all discord usernames using discord id
 
 #TODO
-    @loop(seconds=90)
+    # @loop(seconds=90)
     async def update_disc_roles(self):
         ###
         ## How it will work:
@@ -218,5 +218,5 @@ class admin(commands.Cog):
                         print(f"{usr} is currently role {discord_roles[mem[2]]}({mem[2]}) and will be promoted to role {discord_roles[expected_lvl_min]}({expected_lvl_min})")
                         # await usr.add_roles(this_guild.)
 
-def setup(bot):
-    bot.add_cog(admin(bot))
+async def setup(bot):
+    await bot.add_cog(admin(bot))

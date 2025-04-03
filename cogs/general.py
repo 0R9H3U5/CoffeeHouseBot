@@ -18,5 +18,5 @@ class general(commands.Cog):
             next_mem_lvl = self.bot.getNextMemLvl(user[1])
             await ctx.channel.send(f"**{ctx.author.name}** you are eligible for promotion to **{next_mem_lvl}** on **{next_mem_lvl_date[:10]}**.")
 
-def setup(bot):
-    bot.add_cog(general(bot))
+async def setup(bot):
+    await bot.add_cog(general(bot))
