@@ -20,12 +20,14 @@
 #######
 import json
 import os
+import pprint
 import ssl
 import datetime
 import discord
 import logging
 import urllib.parse 
 from discord.ext import commands
+from discord import app_commands
 from dotenv import load_dotenv
 import psycopg2
 
@@ -40,6 +42,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         intents.presences = True
         intents.members = True
         intents.message_content = True
+        intents.guilds = True
         
         # read in configs
         with open("config.json") as json_data_file:
@@ -50,21 +53,61 @@ class CoffeeHouseBot(commands.AutoShardedBot):
 
         super().__init__(command_prefix=self.configs["command_prefix"], intents=intents)
 
-    async def on_ready(self):
-        print(f'{bot.user} has connected to Discord!')
-        log.info('Logged in as')
-        log.info(f'Bot-Name: {self.user.name} | ID: {self.user.id}')
-        # log.info(f'Dev Mode: {self.dev} | Docker: {self.docker}')
-        log.info(f'Discord Version: {discord.__version__}')
-        log.info(f'Bot Version: {__version__}')
+    async def setup_hook(self):
+        """This is called when the bot starts up"""
+        # Load all cogs
         for cog in self.configs["cogs"]:
             try:
                 print(f'Loading cog {cog}')
                 await self.load_extension(cog)
-            except Exception:
-                log.warning(f'Couldn\'t load cog {cog}')        
-        # self.get_cog('admin').update_disc_roles.start() # TODO - broken - i think this was just for command testing
-    
+            except Exception as e:
+                log.warning(f'Couldn\'t load cog {cog}: {str(e)}')
+        
+        # Sync commands globally
+        try:
+            print('Syncing commands globally...')
+            synced = await self.tree.sync()
+            print(f'Synced {len(synced)} commands globally!')
+        except Exception as error:
+            log.error(f'Failed to sync commands: {error}')
+
+    async def on_ready(self):
+        print(f'{self.user} has connected to Discord!')
+        log.info('Logged in as')
+        log.info(f'Bot-Name: {self.user.name} | ID: {self.user.id}')
+        log.info(f'Discord Version: {discord.__version__}')
+        log.info(f'Bot Version: {__version__}')
+        
+        # Sync to test server if specified
+        if "test_server_guild_id" in self.configs:
+            try:
+                print(f'Syncing commands to test server...')
+                guild_id = self.configs["test_server_guild_id"]
+                print(f'Looking for guild with ID: {guild_id}')
+                
+                # List all guilds the bot is in for debugging
+                print(f'Bot is in {len(self.guilds)} guilds:')
+                for g in self.guilds:
+                    print(f'  - {g.name} (ID: {g.id})')
+                
+                guild = self.get_guild(guild_id)
+                if guild is None:
+                    log.error(f'Could not find guild with ID {guild_id}')
+                    print(f'ERROR: Guild with ID {guild_id} not found. Make sure the bot is in this server.')
+                    return
+                
+                print(f'Found guild: {guild.name}')
+                synced = await self.tree.sync(guild=guild)
+                print(f'Synced {len(synced)} commands to test server!')
+                
+                # List the synced commands
+                print('Synced commands:')
+                for cmd in synced:
+                    print(f'  - {cmd.name}')
+            except Exception as error:
+                log.error(f'Failed to sync commands to test server: {error}')
+                print(f'ERROR: {error}')
+
     async def on_command(self, ctx):
         log.info(f'recieved command: {ctx.message}')
         msg = ctx.message
@@ -77,7 +120,6 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             await message.author.send(':x: Sorry, but I don\'t accept commands through direct messages! Please use the `#bots` channel of your corresponding server!')
             return
         await self.process_commands(message)    
-
 
     # Use the current membership level to find when the next promotion is due
     def getNextMemLvlDate(self, mem_lvl, join_date):
