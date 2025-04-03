@@ -18,6 +18,57 @@ class skillComp(commands.Cog):
         else:
             await interaction.followup.send(f"**{interaction.user.name}** you are not registered in our database.", ephemeral=True)
 
+    @app_commands.command(name="skill-comp-leaderboard", description="Show the skill competition points leaderboard")
+    async def skill_comp_leaderboard(self, interaction):
+        await interaction.response.defer()
+        
+        # Get all members ordered by skill_comp_pts in descending order
+        members = self.bot.selectMany("SELECT rsn, skill_comp_pts FROM member WHERE skill_comp_pts > 0 ORDER BY skill_comp_pts DESC")
+        
+        if not members:
+            await interaction.followup.send("No members have any skill competition points yet.")
+            return
+            
+        # Format the leaderboard
+        leaderboard = self.format_leaderboard(members)
+        await interaction.followup.send(f"```\n{leaderboard}```")
+
+    def format_leaderboard(self, members):
+        if not members:
+            return "No members found."
+            
+        # Define column widths
+        rank_width = 4
+        rsn_width = 25
+        points_width = 10
+        
+        # Create header
+        header = f"╔{'═' * rank_width}╦{'═' * rsn_width}╦{'═' * points_width}╗\n"
+        header += f"║{'#'.center(rank_width)}║{'RSN'.center(rsn_width)}║{'Points'.center(points_width)}║\n"
+        header += f"╠{'═' * rank_width}╬{'═' * rsn_width}╬{'═' * points_width}╣\n"
+        
+        # Create rows
+        rows = ""
+        for i, (rsn, points) in enumerate(members, 1):
+            rank = str(i).center(rank_width)
+            rsn_formatted = str(rsn).center(rsn_width)
+            points_formatted = str(points).center(points_width)
+            
+            # Highlight rows with more than 12 points
+            if points > 12:
+                rows += f"║{rank}║{rsn_formatted}║{points_formatted}║ ★\n"
+            else:
+                rows += f"║{rank}║{rsn_formatted}║{points_formatted}║\n"
+        
+        # Create footer
+        footer = f"╚{'═' * rank_width}╩{'═' * rsn_width}╩{'═' * points_width}╝\n"
+        
+        # Add legend
+        legend = "★ = 12 points redeemable for a bond\n"
+        legend += f"Total players: {len(members)}"
+        
+        return header + rows + footer + legend
+
     # TODO
     # @app_commands.command(name="skill-comp-wins", description="Fetch the skill comp wins for the user")
     # async def skill_comp_wins(self, interaction):

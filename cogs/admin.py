@@ -23,7 +23,45 @@ class admin(commands.Cog):
         await self.bot.close()
         sys.exit(0)
 
-    @app_commands.command(name="view-member", description="View member info by RSN")
+    @app_commands.command(name="sync-commands", description="Sync slash commands without restarting the bot (admin only)")
+    async def sync_commands(self, interaction):
+        # Check if user has admin permissions
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+            return
+            
+        await interaction.response.defer()
+        
+        try:
+            # Sync commands globally
+            print('Syncing commands globally...')
+            synced = await self.bot.tree.sync()
+            print(f'Synced {len(synced)} commands globally!')
+            
+            # Also sync to test server if specified
+            if "test_server_guild_id" in self.bot.configs:
+                guild_id = self.bot.configs["test_server_guild_id"]
+                print(f'Syncing commands to test server...')
+                
+                guild = self.bot.get_guild(guild_id)
+                if guild is None:
+                    await interaction.followup.send(f"Could not find guild with ID {guild_id}. Make sure the bot is in this server.", ephemeral=True)
+                    return
+                
+                print(f'Found guild: {guild.name}')
+                synced = await self.bot.tree.sync(guild=guild)
+                print(f'Synced {len(synced)} commands to test server!')
+                
+                # List the synced commands
+                command_list = "\n".join([f"- {cmd.name}" for cmd in synced])
+                await interaction.followup.send(f"✅ Successfully synced {len(synced)} commands to {guild.name}:\n{command_list}")
+            else:
+                await interaction.followup.send(f"✅ Successfully synced {len(synced)} commands globally.")
+        except Exception as error:
+            print(f'ERROR: {error}')
+            await interaction.followup.send(f"❌ Failed to sync commands: {error}", ephemeral=True)
+
+    @app_commands.command(name="view-member", description="View member info by RSN (admin only)")
     async def view_member(self, interaction, user_rsn: str):
         # Check if user has admin permissions
         if not interaction.user.guild_permissions.administrator:
@@ -48,7 +86,7 @@ class admin(commands.Cog):
 **Previous RSN:** {user[7]}
 **Other Notes:** {user[15]}""")
 
-    @app_commands.command(name="update-member", description="Update an existing member")
+    @app_commands.command(name="update-member", description="Update an existing member (admin only)")
     async def update_member(self, interaction, user_rsn: str, update_key: str, update_value: str):
         # Check if user has admin permissions
         if not interaction.user.guild_permissions.administrator:
@@ -64,7 +102,7 @@ class admin(commands.Cog):
         self.bot.execute_query(f"UPDATE member SET {update_key}={update_value} WHERE rsn ILIKE '{user_rsn}'")
         await interaction.followup.send(f'Updated user {user_rsn}. Key {update_key} set to value {update_value}.')
 
-    @app_commands.command(name="set-active", description="Mark a member as active or inactive")
+    @app_commands.command(name="set-active", description="Mark a member as active or inactive (admin only)")
     async def set_active(self, interaction, user_rsn: str, is_active: bool):
         # Check if user has admin permissions
         if not interaction.user.guild_permissions.administrator:
@@ -76,7 +114,7 @@ class admin(commands.Cog):
         await self.update_member(interaction, user_rsn, "active", is_active)
         await interaction.followup.send(f'{user_rsn} inactive flag set to {is_active}')
 
-    @app_commands.command(name="set-onleave", description="Mark a member as on leave or returned")
+    @app_commands.command(name="set-onleave", description="Mark a member as on leave or returned (admin only)")
     async def set_onleave(self, interaction, user_rsn: str, is_onleave: bool):
         # Check if user has admin permissions
         if not interaction.user.guild_permissions.administrator:
@@ -107,7 +145,7 @@ class admin(commands.Cog):
             await interaction.followup.send(f'{e.__class__.__name__}: {e}')
 
     # TODO if needed
-    # @app_commands.command(name='disc-refresh', description="Update all discord usernames using discord id")
+    # @app_commands.command(name='disc-refresh', description="Update all discord usernames using discord id (admin only)")
     # async def disc_refresh(self, interaction):
     #     # Update all discord usernames using discord id
 
