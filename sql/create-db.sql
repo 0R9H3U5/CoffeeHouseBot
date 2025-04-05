@@ -9,7 +9,7 @@ CREATE TABLE member
   rsn varchar(12) NOT NULL,
   discord_id_num bigint,
   discord_id varchar(37),
-  membership_level integer CHECK (membership_level >= 0 AND membership_level <= 6),
+  membership_level integer CHECK (membership_level >= 0 AND membership_level <= 8),
   join_date date,
   special_status varchar(50),
   previous_rsn TEXT [],

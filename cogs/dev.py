@@ -177,14 +177,22 @@ class Dev(commands.Cog):
         if not input_string:
             return "NULL"
             
-        parts = [part.strip() for part in input_string.split(',') if part.strip()]
+        # Handle the case where input_string is already a list
+        if isinstance(input_string, list):
+            parts = [part.strip() for part in input_string if part and part.strip()]
+        else:
+            # Split by comma and clean up
+            parts = [part.strip() for part in input_string.split(',') if part.strip()]
+            
         if not parts:
             return "NULL"
         
         # Create the array string without using nested f-strings
         quoted_parts = []
         for part in parts:
-            quoted_parts.append(f"'{part}'")
+            # Escape single quotes in the part
+            escaped_part = part.replace("'", "''")
+            quoted_parts.append(f"'{escaped_part}'")
         
         return f"ARRAY[{', '.join(quoted_parts)}]"
 
@@ -315,7 +323,7 @@ class Dev(commands.Cog):
                     await button_interaction.response.defer(ephemeral=True)
                     
                     # Get membership level mapping from config
-                    membership_levels = self.bot.getConfigValue("discord_role_names")
+                    membership_levels = self.bot.getConfigValue("mem_level_names")
                     
                     # Insert data into member table
                     inserted_count = 0
@@ -350,22 +358,14 @@ class Dev(commands.Cog):
                             # Map membership level to role ID
                             role_id = None
                             if membership_level and membership_level.strip().upper() != "N/A":
-                                # Check if membership_levels is a dictionary
-                                if isinstance(membership_levels, dict):
-                                    for role_name, role_id_value in membership_levels.items():
-                                        if membership_level.lower() in role_name.lower():
-                                            role_id = role_id_value
-                                            break
-                                else:
-                                    print(f"Warning: discord_role_names is not a dictionary: {type(membership_levels)}")
-                                    # If it's a list, try to find a matching role ID
-                                    if isinstance(membership_levels, list):
-                                        # Assuming the list contains role IDs in order
-                                        try:
-                                            # Try to use the membership level as an index
-                                            role_id = membership_levels[int(membership_level)]
-                                        except (ValueError, IndexError):
-                                            print(f"Could not map membership level '{membership_level}' to a role ID")
+                                # If it's a list, try to find a matching role ID
+                                if isinstance(membership_levels, list):
+                                    # Assuming the list contains role IDs in order
+                                    try:
+                                        # Try to use the membership level as an index
+                                        role_id = membership_levels.index(membership_level)
+                                    except (ValueError, IndexError):
+                                        print(f"Could not map membership level '{membership_level}' to a role ID")
                             
                             # Handle "N/A" values
                             if previous_rsn and previous_rsn.strip().upper() == "N/A":
@@ -380,6 +380,10 @@ class Dev(commands.Cog):
                             # Format arrays for PostgreSQL
                             previous_rsn_array = self.format_sql_array(previous_rsn)
                             alt_rsn_array = self.format_sql_array(alt_rsn)
+                            
+                            # Debug output for array formatting
+                            print(f"RSN: {rsn}, Previous RSN: {previous_rsn}, Formatted: {previous_rsn_array}")
+                            print(f"RSN: {rsn}, Alt RSN: {alt_rsn}, Formatted: {alt_rsn_array}")
                             
                             # Check if member already exists
                             existing_member = self.bot.selectOne(
