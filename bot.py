@@ -5,7 +5,6 @@
 # - Automate disc rank ups
 #   - On command
 #   - Check daily
-# - add lookup by tagging
 # - Remove member
 # - ALL - Check SKill Pts top 10
 # - Set Skill Pts
@@ -13,11 +12,9 @@
 # - Help Docs
 # - WoM Integration
 # - SOTW/BOTW Poll
-# - lottery entry tracking and picker - needs testing
 # - blocklist for ppl abusing bot
 # - notify of comp lead change
 # - database connection restart on failure
-# - unit testing
 #######
 import json
 import os
