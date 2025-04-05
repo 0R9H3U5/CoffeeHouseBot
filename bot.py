@@ -124,7 +124,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
     # Use the current membership level to find when the next promotion is due
     def getNextMemLvlDate(self, mem_lvl, join_date):
         next_lvl = int(mem_lvl) + 1
-        if (next_lvl < 4):
+        if (next_lvl < 5):
             today = datetime.date.today()
             
             # Ensure join_date is a datetime.date object
@@ -144,7 +144,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 
             days_as_member = today - join_date
             days_as_member_int = days_as_member.days  # Convert timedelta to integer
-            
+            print(f'days_as_member_int: {days_as_member_int}')
             if days_as_member_int < 14: # 2 weeks
                 return join_date + datetime.timedelta(days=14)
             elif days_as_member_int < 84: # 12 weeks
