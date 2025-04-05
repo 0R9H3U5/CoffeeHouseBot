@@ -114,13 +114,13 @@ class Admin(commands.Cog):
         
         # Format arrays
         alt_rsn = user[8]
-        if alt_rsn and len(alt_rsn) > 0:
+        if alt_rsn and isinstance(alt_rsn, (list, tuple)) and len(alt_rsn) > 0:
             alt_rsn_str = ", ".join(alt_rsn)
         else:
             alt_rsn_str = "None"
             
         prev_rsn = user[7]
-        if prev_rsn and len(prev_rsn) > 0:
+        if prev_rsn and isinstance(prev_rsn, (list, tuple)) and len(prev_rsn) > 0:
             prev_rsn_str = ", ".join(prev_rsn)
         else:
             prev_rsn_str = "None"
@@ -129,7 +129,8 @@ class Admin(commands.Cog):
         embed.add_field(name="Previous RSNs", value=prev_rsn_str, inline=False)
         
         # Add notes if available
-        if user[15]:
+        print(f'User: {user}')
+        if user[15]:  # notes field is at index 15
             embed.add_field(name="Other Notes", value=user[15], inline=False)
             
         # Set footer with timestamp
@@ -177,23 +178,23 @@ class Admin(commands.Cog):
         await self.update_member(interaction, user_rsn, "on_leave", is_onleave)
         await interaction.followup.send(f'{user_rsn} on_leave flag set to {is_onleave}')
 
-    @app_commands.command(name="reload", description="Reload a cog (admin only)")
-    async def reload(self, interaction, module: str):
-        # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-            return
+    # @app_commands.command(name="reload", description="Reload a cog (admin only)")
+    # async def reload(self, interaction, module: str):
+    #     # Check if user has admin permissions
+    #     if not interaction.user.guild_permissions.administrator:
+    #         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+    #         return
             
-        await interaction.response.defer()
+    #     await interaction.response.defer()
         
-        # reload a cog
-        try:
-            if module[:4] != 'cogs':
-                module = 'cogs.' + module
-            self.bot.reload_extension(module)
-            await interaction.followup.send('\N{OK HAND SIGN}')
-        except commands.ExtensionError as e:
-            await interaction.followup.send(f'{e.__class__.__name__}: {e}')
+    #     # reload a cog
+    #     try:
+    #         if module[:4] != 'cogs':
+    #             module = 'cogs.' + module
+    #         self.bot.reload_extension(module)
+    #         await interaction.followup.send('\N{OK HAND SIGN}')
+    #     except commands.ExtensionError as e:
+    #         await interaction.followup.send(f'{e.__class__.__name__}: {e}')
 
     # TODO if needed
     # @app_commands.command(name='disc-refresh', description="Update all discord usernames using discord id (admin only)")

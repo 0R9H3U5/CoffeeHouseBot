@@ -63,55 +63,55 @@ class Dev(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Error checking database status: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="ping", description="Check the bot's latency (dev only)")
-    async def ping(self, interaction: discord.Interaction):
-        # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-            return
+    # @app_commands.command(name="ping", description="Check the bot's latency (dev only)")
+    # async def ping(self, interaction: discord.Interaction):
+    #     # Check if user has admin permissions
+    #     if not interaction.user.guild_permissions.administrator:
+    #         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+    #         return
             
-        await interaction.response.defer()
+    #     await interaction.response.defer()
         
-        # Calculate latency
-        latency = round(self.bot.latency * 1000)
+    #     # Calculate latency
+    #     latency = round(self.bot.latency * 1000)
         
-        # Create embed for response
-        embed = discord.Embed(
-            title="🏓 Pong!",
-            description=f"Bot latency: **{latency}ms**",
-            color=discord.Color.blue()
-        )
+    #     # Create embed for response
+    #     embed = discord.Embed(
+    #         title="🏓 Pong!",
+    #         description=f"Bot latency: **{latency}ms**",
+    #         color=discord.Color.blue()
+    #     )
         
-        await interaction.followup.send(embed=embed)
+    #     await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="get_bot_info", description="Display information about the bot (dev only)")
-    async def get_bot_info(self, interaction: discord.Interaction):
-        # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-            return
+    # @app_commands.command(name="get_bot_info", description="Display information about the bot (dev only)")
+    # async def get_bot_info(self, interaction: discord.Interaction):
+    #     # Check if user has admin permissions
+    #     if not interaction.user.guild_permissions.administrator:
+    #         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+    #         return
             
-        await interaction.response.defer()
+    #     await interaction.response.defer()
         
-        # Get bot information
-        uptime = datetime.datetime.now() - self.bot.start_time if hasattr(self.bot, 'start_time') else "Unknown"
-        guild_count = len(self.bot.guilds)
-        user_count = sum(g.member_count for g in self.bot.guilds)
+    #     # Get bot information
+    #     uptime = datetime.datetime.now() - self.bot.start_time if hasattr(self.bot, 'start_time') else "Unknown"
+    #     guild_count = len(self.bot.guilds)
+    #     user_count = sum(g.member_count for g in self.bot.guilds)
         
-        # Create embed for response
-        embed = discord.Embed(
-            title="🤖 Bot Information",
-            color=discord.Color.blue()
-        )
-        embed.add_field(name="Bot Name", value=self.bot.user.name, inline=True)
-        embed.add_field(name="Bot ID", value=self.bot.user.id, inline=True)
-        embed.add_field(name="Discord.py Version", value=discord.__version__, inline=True)
-        embed.add_field(name="Bot Version", value=self.bot.__version__, inline=True)
-        embed.add_field(name="Uptime", value=str(uptime).split('.')[0], inline=True)
-        embed.add_field(name="Guilds", value=guild_count, inline=True)
-        embed.add_field(name="Users", value=user_count, inline=True)
+    #     # Create embed for response
+    #     embed = discord.Embed(
+    #         title="🤖 Bot Information",
+    #         color=discord.Color.blue()
+    #     )
+    #     embed.add_field(name="Bot Name", value=self.bot.user.name, inline=True)
+    #     embed.add_field(name="Bot ID", value=self.bot.user.id, inline=True)
+    #     embed.add_field(name="Discord.py Version", value=discord.__version__, inline=True)
+    #     embed.add_field(name="Bot Version", value=self.bot.__version__, inline=True)
+    #     embed.add_field(name="Uptime", value=str(uptime).split('.')[0], inline=True)
+    #     embed.add_field(name="Guilds", value=guild_count, inline=True)
+    #     embed.add_field(name="Users", value=user_count, inline=True)
         
-        await interaction.followup.send(embed=embed)
+    #     await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="reload_cog", description="Reload a specific cog (dev only)")
     @app_commands.describe(
@@ -137,33 +137,33 @@ class Dev(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Failed to reload cog **{cog_name}**: {str(e)}", ephemeral=True)
 
-    @app_commands.command(name="error_test", description="Test error handling (dev only)")
-    async def error_test(self, interaction: discord.Interaction):
-        # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-            return
+    # @app_commands.command(name="error_test", description="Test error handling (dev only)")
+    # async def error_test(self, interaction: discord.Interaction):
+    #     # Check if user has admin permissions
+    #     if not interaction.user.guild_permissions.administrator:
+    #         await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+    #         return
             
-        await interaction.response.defer()
+    #     await interaction.response.defer()
         
-        try:
-            # Intentionally raise an error
-            raise ValueError("This is a test error")
-        except Exception as e:
-            # Get the full traceback
-            error_traceback = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+    #     try:
+    #         # Intentionally raise an error
+    #         raise ValueError("This is a test error")
+    #     except Exception as e:
+    #         # Get the full traceback
+    #         error_traceback = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
             
-            # Create embed for response
-            embed = discord.Embed(
-                title="🔍 Error Test Results",
-                description="This is a test of the error handling system.",
-                color=discord.Color.red()
-            )
-            embed.add_field(name="Error Type", value=type(e).__name__, inline=True)
-            embed.add_field(name="Error Message", value=str(e), inline=True)
-            embed.add_field(name="Traceback", value=f"```py\n{error_traceback[:1000]}...```", inline=False)
+    #         # Create embed for response
+    #         embed = discord.Embed(
+    #             title="🔍 Error Test Results",
+    #             description="This is a test of the error handling system.",
+    #             color=discord.Color.red()
+    #         )
+    #         embed.add_field(name="Error Type", value=type(e).__name__, inline=True)
+    #         embed.add_field(name="Error Message", value=str(e), inline=True)
+    #         embed.add_field(name="Traceback", value=f"```py\n{error_traceback[:1000]}...```", inline=False)
             
-            await interaction.followup.send(embed=embed)
+    #         await interaction.followup.send(embed=embed)
 
     def format_sql_array(self, input_string):
         """Format a comma-separated string as a PostgreSQL array.
