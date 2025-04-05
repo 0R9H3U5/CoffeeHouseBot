@@ -12,11 +12,12 @@
 # - left discord notification
 # - Help Docs
 # - WoM Integration
-# - Google Sheets integration/better way to get whole mem list
 # - SOTW/BOTW Poll
 # - lottery entry tracking and picker - needs testing
 # - blocklist for ppl abusing bot
 # - notify of comp lead change
+# - database connection restart on failure
+# - unit testing
 #######
 import json
 import os
@@ -125,15 +126,33 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         next_lvl = int(mem_lvl) + 1
         if (next_lvl < 4):
             today = datetime.date.today()
+            
+            # Ensure join_date is a datetime.date object
+            if isinstance(join_date, str):
+                try:
+                    # Try to parse the date string
+                    join_date = datetime.datetime.strptime(join_date, "%Y-%m-%d").date()
+                except ValueError:
+                    # If parsing fails, return None
+                    return None
+            elif isinstance(join_date, datetime.datetime):
+                # Convert datetime to date if needed
+                join_date = join_date.date()
+            elif not isinstance(join_date, datetime.date):
+                # If it's not a date, datetime, or string, return None
+                return None
+                
             days_as_member = today - join_date
-            if days_as_member < 14: # 2 weeks
-                return join_date + datetime.timedelta(14)
-            elif days_as_member < 84: # 12 weeks
-                return join_date + datetime.timedelta(84)
-            elif days_as_member < 182: # 26 weeks
-                return join_date + datetime.timedelta(182)
-            elif days_as_member < 365: # 52 weeks
-                return join_date + datetime.timedelta(365)
+            days_as_member_int = days_as_member.days  # Convert timedelta to integer
+            
+            if days_as_member_int < 14: # 2 weeks
+                return join_date + datetime.timedelta(days=14)
+            elif days_as_member_int < 84: # 12 weeks
+                return join_date + datetime.timedelta(days=84)
+            elif days_as_member_int < 182: # 26 weeks
+                return join_date + datetime.timedelta(days=182)
+            elif days_as_member_int < 365: # 52 weeks
+                return join_date + datetime.timedelta(days=365)
             else:
                 return None
         else:

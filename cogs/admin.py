@@ -3,6 +3,7 @@ import sys
 from discord.ext import commands
 from discord.ext.tasks import loop
 from discord import app_commands
+import discord
 
 class Admin(commands.Cog):
     """
@@ -75,16 +76,66 @@ class Admin(commands.Cog):
             await interaction.followup.send(f'No members found with rsn or alt of {user_rsn}')
             return
 
-        await interaction.followup.send(f"""**RSN:** {user[1]}
-**Discord ID:** {user[3]}
-**Membership Level:** {self.bot.getConfigValue("mem_level_names")[int(user[4])]}
-**Next Promotion Date:** {self.bot.getNextMemLvlDate(user[4], user[5])}
-**Skill Comp Points:** {user[11]}
-**On Leave:** {user[9]}
-**Active:** {user[10]}
-**Alts:** {user[8]}
-**Previous RSN:** {user[7]}
-**Other Notes:** {user[15]}""")
+        # Create an embed for the member information
+        embed = discord.Embed(
+            title=f"Member Information: {user[1]}",
+            color=discord.Color.blue(),
+            timestamp=datetime.datetime.now()
+        )
+        
+        # Add member details to the embed
+        embed.add_field(name="RSN", value=user[1], inline=True)
+        embed.add_field(name="Discord ID", value=user[3] or "Not linked", inline=True)
+        
+        # Get membership level name
+        try:
+            membership_level = self.bot.getConfigValue("mem_level_names")[int(user[4])]
+        except (IndexError, TypeError, ValueError):
+            membership_level = "Unknown"
+            
+        embed.add_field(name="Membership Level", value=membership_level, inline=True)
+        
+        # Get next promotion date
+        next_promotion = self.bot.getNextMemLvlDate(user[4], user[5])
+        if next_promotion:
+            next_promotion_str = next_promotion.strftime("%d/%m/%Y")
+        else:
+            next_promotion_str = "No upcoming promotion"
+            
+        embed.add_field(name="Next Promotion Date", value=next_promotion_str, inline=True)
+        embed.add_field(name="Skill Comp Points", value=user[11] or "0", inline=True)
+        
+        # Format boolean values
+        on_leave = "Yes" if user[9] else "No"
+        active = "Yes" if user[10] else "No"
+        
+        embed.add_field(name="On Leave", value=on_leave, inline=True)
+        embed.add_field(name="Active", value=active, inline=True)
+        
+        # Format arrays
+        alt_rsn = user[8]
+        if alt_rsn and len(alt_rsn) > 0:
+            alt_rsn_str = ", ".join(alt_rsn)
+        else:
+            alt_rsn_str = "None"
+            
+        prev_rsn = user[7]
+        if prev_rsn and len(prev_rsn) > 0:
+            prev_rsn_str = ", ".join(prev_rsn)
+        else:
+            prev_rsn_str = "None"
+            
+        embed.add_field(name="Alt RSNs", value=alt_rsn_str, inline=False)
+        embed.add_field(name="Previous RSNs", value=prev_rsn_str, inline=False)
+        
+        # Add notes if available
+        if user[15]:
+            embed.add_field(name="Other Notes", value=user[15], inline=False)
+            
+        # Set footer with timestamp
+        embed.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
+        
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="update-member", description="Update an existing member (admin only)")
     async def update_member(self, interaction, user_rsn: str, update_key: str, update_value: str):
