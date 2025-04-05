@@ -133,3 +133,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Google Sheets API credentials
+token.json
+credentials.json
+credentials.json:Zone.Identifier

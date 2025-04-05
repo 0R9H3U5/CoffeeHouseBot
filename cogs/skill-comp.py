@@ -1,7 +1,7 @@
 from discord.ext import commands
 from discord import app_commands
 
-class skillComp(commands.Cog):
+class SkillComp(commands.Cog):
     """
     Logic for all skill competition command handling
     """
@@ -87,4 +87,4 @@ class skillComp(commands.Cog):
     #         await interaction.followup.send(f"**{interaction.user.name}** you are not registered in our database.", ephemeral=True)
 
 async def setup(bot):
-    await bot.add_cog(skillComp(bot))
+    await bot.add_cog(SkillComp(bot))

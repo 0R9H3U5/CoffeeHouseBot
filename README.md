@@ -1,5 +1,12 @@
 # CoffeeHouseBot
-Coffee House OSRS Clan Discord Bot
+A Discord bot for managing the Coffee House clan in Old School RuneScape.
+
+## Features
+
+- Member management
+- Lottery system
+- Skill competition tracking
+- Development tools
 
 ## Requirements
 ```

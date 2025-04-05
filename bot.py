@@ -14,7 +14,7 @@
 # - WoM Integration
 # - Google Sheets integration/better way to get whole mem list
 # - SOTW/BOTW Poll
-# - lottery entry tracking and picker
+# - lottery entry tracking and picker - needs testing
 # - blocklist for ppl abusing bot
 # - notify of comp lead change
 #######
@@ -35,6 +35,8 @@ __version__ = '0.1.0'
 
 log = logging.getLogger('discord')
 logging.basicConfig(level=os.getenv('LOGLEVEL', 'INFO'))
+log = logging.getLogger('discord')
+log.propagate = False  # Prevent propagation to root logger to avoid duplicate logs
 
 class CoffeeHouseBot(commands.AutoShardedBot):
     def __init__(self):
@@ -116,9 +118,6 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         # if message.author.bot or message.author.id in loadconfig.__blacklist__:
         #     return
         log.info(f'recieved message: {message}')
-        if isinstance(message.channel, discord.DMChannel):
-            await message.author.send(':x: Sorry, but I don\'t accept commands through direct messages! Please use the `#bots` channel of your corresponding server!')
-            return
         await self.process_commands(message)    
 
     # Use the current membership level to find when the next promotion is due
@@ -181,36 +180,67 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         self.conn = psycopg2.connect(f'postgres://{db_user}:{db_pw}@{db_host}:25640/{db_name}?sslmode=require')
         print(f'Successful connection to database - {self.conn.get_dsn_parameters()}')
 
+    def check_database_connection(self):
+        """Check if the database connection is active and reconnect if needed."""
+        try:
+            # Try to execute a simple query to check connection
+            cursor = self.conn.cursor()
+            cursor.execute('SELECT 1')
+            cursor.close()
+            return True
+        except (psycopg2.OperationalError, psycopg2.InterfaceError):
+            # Connection is not active, attempt to reconnect
+            try:
+                print("Database connection lost. Attempting to reconnect...")
+                self.getDatabaseConnection()
+                return True
+            except Exception as e:
+                print(f"Failed to reconnect to database: {e}")
+                return False
+        except Exception as e:
+            print(f"Error checking database connection: {e}")
+            return False
+
     def selectMany(self, query):
-        # TODO check if connection is active
+        if not self.check_database_connection():
+            print("Cannot execute query: No database connection")
+            return None
         try:
             cursor = self.conn.cursor()
             cursor.execute(query)
             return cursor.fetchall()
         except (Exception, psycopg2.Error) as error:
             print("Error while fetching data from PostgreSQL", error)
+            return None
         finally:
             cursor.close()
     
     def selectOne(self, query):
-        # TODO check if connection is active
+        if not self.check_database_connection():
+            print("Cannot execute query: No database connection")
+            return None
         try:
             cursor = self.conn.cursor()
             cursor.execute(query)
             return cursor.fetchone()
         except (Exception, psycopg2.Error) as error:
             print("Error while fetching data from PostgreSQL", error)
+            return None
         finally:
             cursor.close()
             
     def execute_query(self, query):
-        # TODO check if connection is active
+        if not self.check_database_connection():
+            print("Cannot execute query: No database connection")
+            return False
         try:
             cursor = self.conn.cursor()
             cursor.execute(query)
             self.conn.commit()
+            return True
         except (Exception, psycopg2.Error) as error:
             print("Error while running query", error)
+            return False
         finally:
             cursor.close()
 

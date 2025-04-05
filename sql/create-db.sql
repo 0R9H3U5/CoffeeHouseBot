@@ -1,12 +1,18 @@
+-- Drop existing tables if they exist
+DROP TABLE IF EXISTS lottery_entries;
+DROP TABLE IF EXISTS lottery;
+DROP TABLE IF EXISTS skill_comp;
+DROP TABLE IF EXISTS member;
+
 CREATE TABLE member
-( _id integer PRIMARY KEY,
+( _id SERIAL PRIMARY KEY,
   rsn varchar(12) NOT NULL,
   discord_id_num bigint,
   discord_id varchar(37),
   membership_level integer CHECK (membership_level >= 0 AND membership_level <= 6),
   join_date date,
   special_status varchar(50),
-  previous_rsn varchar(12),
+  previous_rsn TEXT [],
   alt_rsn TEXT [],
   on_leave boolean,
   active boolean,
@@ -25,4 +31,31 @@ CREATE TABLE skill_comp
     CONSTRAINT fk_member_id
       FOREIGN KEY(winner) 
 	  REFERENCES member(_id)
+);
+
+CREATE TABLE lottery
+(
+    lottery_id SERIAL PRIMARY KEY,
+    start_date timestamp NOT NULL,
+    end_date timestamp NOT NULL,
+    entry_fee integer NOT NULL CHECK (entry_fee >= 0),
+    max_entries integer NOT NULL CHECK (max_entries > 0),
+    winner_discord_id bigint,
+    CONSTRAINT fk_winner_discord_id
+        FOREIGN KEY(winner_discord_id)
+        REFERENCES member(_id)
+);
+
+CREATE TABLE lottery_entries
+(
+    lottery_id integer,
+    discord_id bigint,
+    entries_purchased integer NOT NULL CHECK (entries_purchased > 0),
+    PRIMARY KEY (lottery_id, discord_id),
+    CONSTRAINT fk_lottery_id
+        FOREIGN KEY(lottery_id)
+        REFERENCES lottery(lottery_id),
+    CONSTRAINT fk_discord_id
+        FOREIGN KEY(discord_id)
+        REFERENCES member(_id)
 );
