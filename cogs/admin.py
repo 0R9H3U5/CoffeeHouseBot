@@ -4,7 +4,7 @@ from discord.ext import commands
 from discord.ext.tasks import loop
 from discord import app_commands
 
-class admin(commands.Cog):
+class Admin(commands.Cog):
     """
     Logic for all admin command handling
     """
@@ -189,4 +189,4 @@ class admin(commands.Cog):
                         # await usr.add_roles(this_guild.)
 
 async def setup(bot):
-    await bot.add_cog(admin(bot))
+    await bot.add_cog(Admin(bot))

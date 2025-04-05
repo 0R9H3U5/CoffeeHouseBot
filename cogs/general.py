@@ -3,7 +3,7 @@ from discord.ext import commands
 from discord import app_commands
 import datetime
 
-class general(commands.Cog):
+class General(commands.Cog):
     """
     Logic for all general command handling
     """
@@ -46,4 +46,4 @@ class general(commands.Cog):
     #         await ctx.channel.send(f"**{ctx.author.name}** you are eligible for promotion to **{next_mem_lvl}** on **{next_mem_lvl_date[:10]}**.")
 
 async def setup(bot):
-    await bot.add_cog(general(bot))
+    await bot.add_cog(General(bot))
