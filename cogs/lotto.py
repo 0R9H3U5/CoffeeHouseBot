@@ -68,7 +68,7 @@ class Lotto(commands.Cog):
             )
             embed.add_field(name="Start Date", value=start_datetime.strftime("%Y-%m-%d %H:%M"), inline=True)
             embed.add_field(name="End Date", value=end_datetime.strftime("%Y-%m-%d %H:%M"), inline=True)
-            embed.add_field(name="Entry Fee", value=f"{entry_fee} coins", inline=True)
+            embed.add_field(name="Entry Fee", value=self.bot.format_money(entry_fee, "gp"), inline=True)
             embed.add_field(name="Max Entries", value=str(max_entries), inline=True)
             embed.add_field(name="Lottery ID", value=str(lottery_id), inline=True)
             
@@ -239,7 +239,7 @@ class Lotto(commands.Cog):
             )
             embed.add_field(
                 name="Entry Fee",
-                value=f"{lottery[3]} gp",
+                value=self.bot.format_money(lottery[3], "gp"),
                 inline=True
             )
             embed.add_field(
@@ -254,6 +254,11 @@ class Lotto(commands.Cog):
                 embed.add_field(
                     name="Total Entries",
                     value=str(total_entries),
+                    inline=True
+                )
+                embed.add_field(
+                    name="Total Pot",
+                    value=self.bot.format_money(total_entries*lottery[3], "gp"),
                     inline=True
                 )
                 
@@ -284,6 +289,117 @@ class Lotto(commands.Cog):
         except Exception as e:
             await interaction.response.send_message(
                 f"An error occurred while checking the lottery status: {str(e)}",
+                ephemeral=True
+            )
+
+    @app_commands.command(name="add_lottery_entry", description="Add entries to the active lottery for a user")
+    @app_commands.describe(
+        rsn="The RSN of the user to add entries for",
+        num_entries="Number of entries to add"
+    )
+    async def add_lottery_entry(
+        self,
+        interaction: discord.Interaction,
+        rsn: str,
+        num_entries: int
+    ):
+        try:
+            # Validate parameters
+            if num_entries <= 0:
+                await interaction.response.send_message(
+                    "Number of entries must be greater than 0.",
+                    ephemeral=True
+                )
+                return
+                
+            # Get the active lottery
+            lottery = self.bot.selectOne("""
+                SELECT lottery_id, start_date, end_date, entry_fee, max_entries
+                FROM lottery
+                WHERE start_date <= CURRENT_TIMESTAMP 
+                AND end_date >= CURRENT_TIMESTAMP
+                ORDER BY start_date DESC
+                LIMIT 1
+            """)
+            
+            if not lottery:
+                await interaction.response.send_message(
+                    "There is currently no active lottery to add entries to.",
+                    ephemeral=True
+                )
+                return
+                
+            lottery_id, start_date, end_date, entry_fee, max_entries = lottery
+            
+            # Get the member ID for the RSN
+            member = self.bot.selectOne(f"""
+                SELECT _id, rsn
+                FROM member
+                WHERE rsn ILIKE '{rsn}'
+            """)
+            
+            if not member:
+                await interaction.response.send_message(
+                    f"Member with RSN '{rsn}' not found.",
+                    ephemeral=True
+                )
+                return
+                
+            member_id, member_rsn = member
+            
+            # Check if the member already has entries for this lottery
+            existing_entries = self.bot.selectOne(f"""
+                SELECT entries_purchased
+                FROM lottery_entries
+                WHERE lottery_id = {lottery_id}
+                AND member_id = {member_id}
+            """)
+            
+            current_entries = existing_entries[0] if existing_entries else 0
+            total_entries = current_entries + num_entries
+            
+            # Check if adding these entries would exceed the maximum
+            if total_entries > max_entries:
+                await interaction.response.send_message(
+                    f"Cannot add {num_entries} entries. {member_rsn} already has {current_entries} entries, "
+                    f"and the maximum is {max_entries}.",
+                    ephemeral=True
+                )
+                return
+                
+            # Insert or update the lottery entries
+            if existing_entries:
+                # Update existing entries
+                self.bot.execute_query(f"""
+                    UPDATE lottery_entries
+                    SET entries_purchased = {total_entries}
+                    WHERE lottery_id = {lottery_id}
+                    AND member_id = {member_id}
+                """)
+            else:
+                # Insert new entries
+                self.bot.execute_query(f"""
+                    INSERT INTO lottery_entries (lottery_id, member_id, entries_purchased)
+                    VALUES ({lottery_id}, {member_id}, {num_entries})
+                """)
+                
+            # Create embed for response
+            embed = discord.Embed(
+                title="🎟️ Lottery Entries Added!",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="Lottery ID", value=str(lottery_id), inline=True)
+            embed.add_field(name="Member", value=member_rsn, inline=True)
+            embed.add_field(name="Entries Added", value=str(num_entries), inline=True)
+            embed.add_field(name="Total Entries", value=str(total_entries), inline=True)
+            embed.add_field(name="Entry Fee", value=self.bot.format_money(entry_fee, "gp"), inline=True)
+            embed.add_field(name="Total Cost", value=self.bot.format_money(entry_fee * num_entries, "gp"), inline=True)
+            
+            await interaction.response.send_message(embed=embed)
+            
+        except Exception as e:
+            await interaction.response.send_message(
+                f"An error occurred while adding lottery entries: {str(e)}",
                 ephemeral=True
             )
 

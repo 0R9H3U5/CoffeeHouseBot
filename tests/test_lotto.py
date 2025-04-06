@@ -474,4 +474,193 @@ async def test_lottery_status_no_entries(mock_bot, mock_interaction):
     
     # Check that the Top Entries field shows "No entries yet"
     top_entries_field = next(field for field in embed.fields if field.name == "Top Entries")
-    assert top_entries_field.value == "No entries yet" 
+    assert top_entries_field.value == "No entries yet"
+
+# Test the add_lottery_entry command with valid parameters
+@pytest.mark.asyncio
+async def test_add_lottery_entry_valid(mock_bot, mock_interaction):
+    # Create a Lotto cog with the mock bot
+    lotto_cog = Lotto(mock_bot)
+    
+    # Mock the bot's selectOne method to return lottery and member details
+    mock_bot.selectOne = MagicMock(side_effect=[
+        (1, datetime.datetime.now(), datetime.datetime.now() + datetime.timedelta(days=7), 1000, 5),  # Lottery details
+        (123, "TestUser"),  # Member details
+        None  # No existing entries
+    ])
+    
+    # Mock the bot's execute_query method
+    mock_bot.execute_query = MagicMock()
+    
+    # Access the callback function directly
+    callback = lotto_cog.add_lottery_entry.callback
+    
+    # Call the callback function directly with valid parameters
+    await callback(lotto_cog, mock_interaction, "TestUser", 3)
+    
+    # Verify that selectOne was called three times:
+    # 1. To get lottery details
+    # 2. To get member details
+    # 3. To check for existing entries
+    assert mock_bot.selectOne.call_count == 3
+    
+    # Verify that execute_query was called to insert the entries
+    mock_bot.execute_query.assert_called_once()
+    
+    # Verify that response.send_message was called with an embed
+    mock_interaction.response.send_message.assert_called_once()
+    call_args = mock_interaction.response.send_message.call_args
+    
+    # Check that the first argument is an embed
+    assert isinstance(call_args[1]['embed'], discord.Embed)
+    embed = call_args[1]['embed']
+    
+    # Verify the embed properties
+    assert embed.title == "🎟️ Lottery Entries Added!"
+    assert embed.color == discord.Color.green()
+    
+    # Check that the fields contain the expected information
+    field_names = [field.name for field in embed.fields]
+    assert "Lottery ID" in field_names
+    assert "Member" in field_names
+    assert "Entries Added" in field_names
+    assert "Total Entries" in field_names
+    assert "Entry Fee" in field_names
+    assert "Total Cost" in field_names
+
+# Test the add_lottery_entry command with no active lottery
+@pytest.mark.asyncio
+async def test_add_lottery_entry_no_active(mock_bot, mock_interaction):
+    # Create a Lotto cog with the mock bot
+    lotto_cog = Lotto(mock_bot)
+    
+    # Mock the bot's selectOne method to return no active lottery
+    mock_bot.selectOne = MagicMock(return_value=None)
+    
+    # Access the callback function directly
+    callback = lotto_cog.add_lottery_entry.callback
+    
+    # Call the callback function directly
+    await callback(lotto_cog, mock_interaction, "TestUser", 3)
+    
+    # Verify that selectOne was called to get lottery details
+    mock_bot.selectOne.assert_called_once()
+    
+    # Verify that response.send_message was called with an error message
+    mock_interaction.response.send_message.assert_called_once_with(
+        "There is currently no active lottery to add entries to.",
+        ephemeral=True
+    )
+    
+    # Verify that execute_query was not called
+    assert not hasattr(mock_bot, 'execute_query') or not mock_bot.execute_query.called
+
+# Test the add_lottery_entry command with non-existent member
+@pytest.mark.asyncio
+async def test_add_lottery_entry_nonexistent_member(mock_bot, mock_interaction):
+    # Create a Lotto cog with the mock bot
+    lotto_cog = Lotto(mock_bot)
+    
+    # Mock the bot's selectOne method to return lottery details but no member
+    mock_bot.selectOne = MagicMock(side_effect=[
+        (1, datetime.datetime.now(), datetime.datetime.now() + datetime.timedelta(days=7), 1000, 5),  # Lottery details
+        None  # No member found
+    ])
+    
+    # Access the callback function directly
+    callback = lotto_cog.add_lottery_entry.callback
+    
+    # Call the callback function directly
+    await callback(lotto_cog, mock_interaction, "NonExistentUser", 3)
+    
+    # Verify that selectOne was called twice
+    assert mock_bot.selectOne.call_count == 2
+    
+    # Verify that response.send_message was called with an error message
+    mock_interaction.response.send_message.assert_called_once_with(
+        "Member with RSN 'NonExistentUser' not found.",
+        ephemeral=True
+    )
+    
+    # Verify that execute_query was not called
+    assert not hasattr(mock_bot, 'execute_query') or not mock_bot.execute_query.called
+
+# Test the add_lottery_entry command with exceeding max entries
+@pytest.mark.asyncio
+async def test_add_lottery_entry_exceed_max(mock_bot, mock_interaction):
+    # Create a Lotto cog with the mock bot
+    lotto_cog = Lotto(mock_bot)
+    
+    # Mock the bot's selectOne method to return lottery, member, and existing entries
+    mock_bot.selectOne = MagicMock(side_effect=[
+        (1, datetime.datetime.now(), datetime.datetime.now() + datetime.timedelta(days=7), 1000, 5),  # Lottery details
+        (123, "TestUser"),  # Member details
+        (3,)  # Existing entries
+    ])
+    
+    # Access the callback function directly
+    callback = lotto_cog.add_lottery_entry.callback
+    
+    # Call the callback function directly with entries that would exceed the maximum
+    await callback(lotto_cog, mock_interaction, "TestUser", 3)
+    
+    # Verify that selectOne was called three times
+    assert mock_bot.selectOne.call_count == 3
+    
+    # Verify that response.send_message was called with an error message
+    mock_interaction.response.send_message.assert_called_once_with(
+        "Cannot add 3 entries. TestUser already has 3 entries, and the maximum is 5.",
+        ephemeral=True
+    )
+    
+    # Verify that execute_query was not called
+    assert not hasattr(mock_bot, 'execute_query') or not mock_bot.execute_query.called
+
+# Test the add_lottery_entry command with updating existing entries
+@pytest.mark.asyncio
+async def test_add_lottery_entry_update_existing(mock_bot, mock_interaction):
+    # Create a Lotto cog with the mock bot
+    lotto_cog = Lotto(mock_bot)
+    
+    # Mock the bot's selectOne method to return lottery, member, and existing entries
+    mock_bot.selectOne = MagicMock(side_effect=[
+        (1, datetime.datetime.now(), datetime.datetime.now() + datetime.timedelta(days=7), 1000, 5),  # Lottery details
+        (123, "TestUser"),  # Member details
+        (2,)  # Existing entries
+    ])
+    
+    # Mock the bot's execute_query method
+    mock_bot.execute_query = MagicMock()
+    
+    # Access the callback function directly
+    callback = lotto_cog.add_lottery_entry.callback
+    
+    # Call the callback function directly with valid parameters
+    await callback(lotto_cog, mock_interaction, "TestUser", 2)
+    
+    # Verify that selectOne was called three times
+    assert mock_bot.selectOne.call_count == 3
+    
+    # Verify that execute_query was called to update the entries
+    mock_bot.execute_query.assert_called_once()
+    
+    # Verify that response.send_message was called with an embed
+    mock_interaction.response.send_message.assert_called_once()
+    call_args = mock_interaction.response.send_message.call_args
+    
+    # Check that the first argument is an embed
+    assert isinstance(call_args[1]['embed'], discord.Embed)
+    embed = call_args[1]['embed']
+    
+    # Verify the embed properties
+    assert embed.title == "🎟️ Lottery Entries Added!"
+    assert embed.color == discord.Color.green()
+    
+    # Check that the fields contain the expected information
+    field_names = [field.name for field in embed.fields]
+    assert "Lottery ID" in field_names
+    assert "Member" in field_names
+    assert "Entries Added" in field_names
+    assert "Total Entries" in field_names
+    assert "Entry Fee" in field_names
+    assert "Total Cost" in field_names 
