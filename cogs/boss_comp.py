@@ -8,7 +8,10 @@ class BossComp(Competition):
     Logic for all boss competition command handling
     """
     def __init__(self, bot):
-        super().__init__(bot)
+        self.bot = bot
+        self.comp_type = self.get_comp_type()
+        self.points_column = f"{self.comp_type}_comp_pts"
+        self.points_life_column = f"{self.comp_type}_comp_pts_life"
         
     def get_comp_type(self):
         """
@@ -40,22 +43,13 @@ class BossComp(Competition):
         
     @app_commands.command(name="boss-comp-add", description="Add a new boss competition")
     @app_commands.default_permissions(administrator=True)
-    async def boss_comp_add(self, interaction, name: str, winner: discord.Member):
-        await interaction.response.defer()
+    async def boss_comp_add(self, interaction, name: str, metric: str, start_date: str, end_date: str):
+        await self.comp_add(interaction, name, metric, start_date, end_date)
         
-        # Get the winner's ID from the database
-        user = self.bot.selectOne(f"SELECT _id FROM member WHERE discord_id_num={winner.id}")
-        if user is None:
-            await interaction.followup.send(f"**{winner.name}** is not registered in our database.", ephemeral=True)
-            return
-            
-        # Add the competition
-        success = self.add_competition(name, user[0])
-        
-        if success:
-            await interaction.followup.send(f"Added boss competition **{name}** won by **{winner.name}**")
-        else:
-            await interaction.followup.send("Failed to add the competition.", ephemeral=True)
+    @app_commands.command(name="boss-comp-update", description="Update boss competition results")
+    @app_commands.default_permissions(administrator=True)
+    async def boss_comp_update(self, interaction, comp_id: int, winner: str, second_place: str, third_place: str):
+        await self.comp_update(interaction, comp_id, winner, second_place, third_place)
 
 async def setup(bot):
     await bot.add_cog(BossComp(bot)) 

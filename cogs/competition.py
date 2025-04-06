@@ -1,34 +1,31 @@
 from discord.ext import commands
 from discord import app_commands
-from abc import ABC, abstractmethod
+import datetime
 
-class Competition(commands.Cog, ABC):
+class Competition(commands.Cog):
     """
     Base class for all competition types (Skill, Boss, etc.)
     """
     def __init__(self, bot):
+        super().__init__(bot)
         self.bot = bot
         self.comp_type = self.get_comp_type()
         self.points_column = f"{self.comp_type}_comp_pts"
         self.points_life_column = f"{self.comp_type}_comp_pts_life"
-        self.wins_column = f"{self.comp_type}_comp_wins"
-        
-    @abstractmethod
+    
     def get_comp_type(self):
         """
         Return the competition type (e.g., 'skill', 'boss')
         This is used to determine column names and command prefixes
         """
-        pass
-        
-    @abstractmethod
+        raise NotImplementedError("Subclasses must implement get_comp_type()")
+    
     def get_comp_name(self):
         """
         Return the human-readable name of the competition type
         """
-        pass
+        raise NotImplementedError("Subclasses must implement get_comp_name()")
         
-    @app_commands.command(name="comp-points", description="Fetch the competition points for the user")
     async def comp_points(self, interaction):
         await interaction.response.defer()
         
@@ -38,7 +35,6 @@ class Competition(commands.Cog, ABC):
         else:
             await interaction.followup.send(f"**{interaction.user.name}** you are not registered in our database.", ephemeral=True)
 
-    @app_commands.command(name="comp-leaderboard", description="Show the competition points leaderboard")
     async def comp_leaderboard(self, interaction):
         await interaction.response.defer()
         
@@ -89,69 +85,147 @@ class Competition(commands.Cog, ABC):
         
         return header + rows + footer + legend
 
-    @app_commands.command(name="comp-wins", description="Fetch the competition wins for the user")
     async def comp_wins(self, interaction):
         await interaction.response.defer()
         
-        user = self.bot.selectOne(f"SELECT discord_id, {self.wins_column} FROM member WHERE discord_id_num={interaction.user.id}")
-        if user is not None:
-            winsstring = user[1]
-            if winsstring:
-                wins = winsstring.split(',')
-                wincount = len(wins)
-                await interaction.followup.send(f"**{interaction.user.name}** you have won **{wincount}** {self.get_comp_name()} competitions:")
-                for win in wins:
-                    unquoted_win = win.replace('"','')
-                    await interaction.followup.send(f" - {unquoted_win.strip()}")
-            else:
-                await interaction.followup.send(f"**{interaction.user.name}** you have not won any {self.get_comp_name()} competitions yet.")
-        else:
+        # Get the user's _id from the member table
+        user = self.bot.selectOne(f"SELECT _id FROM member WHERE discord_id_num={interaction.user.id}")
+        if user is None:
             await interaction.followup.send(f"**{interaction.user.name}** you are not registered in our database.", ephemeral=True)
+            return
             
-    def add_competition(self, name, winner_id):
+        # Get the user's competition wins using the foreign key relationship
+        wins = self.bot.selectMany(
+            f"SELECT comp_name FROM competition WHERE winner = {user[0]} AND competition_type = '{self.comp_type}' ORDER BY comp_id DESC"
+        )
+        
+        if not wins:
+            await interaction.followup.send(f"**{interaction.user.name}** you have not won any {self.get_comp_name()} competitions yet.")
+            return
+            
+        await interaction.followup.send(f"**{interaction.user.name}** you have won **{len(wins)}** {self.get_comp_name()} competitions:")
+        for win in wins:
+            await interaction.followup.send(f" - {win[0]}")
+            
+    async def comp_add(self, interaction, name: str, metric: str, start_date: str, end_date: str):
         """
         Add a new competition to the database
         
         Args:
             name (str): The name of the competition
-            winner_id (int): The ID of the winner
-            
-        Returns:
-            bool: True if successful, False otherwise
+            metric (str): The metric being measured (e.g., 'Total XP', 'Kill Count')
+            start_date (str): The start date in YYYY-MM-DD HH:MM format
+            end_date (str): The end date in YYYY-MM-DD HH:MM format
         """
-        # Get the next competition ID
-        result = self.bot.selectOne("SELECT MAX(comp_id) FROM competition")
-        next_id = 1 if result[0] is None else result[0] + 1
+        await interaction.response.defer()
         
-        # Insert the new competition
+        try:
+            # Parse the dates
+            start = datetime.datetime.strptime(start_date, "%Y-%m-%d %H:%M")
+            end = datetime.datetime.strptime(end_date, "%Y-%m-%d %H:%M")
+            
+            # Get the next competition ID
+            result = self.bot.selectOne("SELECT MAX(comp_id) FROM competition")
+            next_id = 1 if result[0] is None else result[0] + 1
+            
+            # Insert the new competition
+            success = self.bot.execute_query(
+                f"INSERT INTO competition (comp_id, comp_name, comp_type, metric, start_date, end_date) "
+                f"VALUES ({next_id}, '{name}', '{self.comp_type}', '{metric}', '{start_date}', '{end_date}')"
+            )
+            
+            if success:
+                await interaction.followup.send(
+                    f"✅ Added new {self.get_comp_name()} competition:\n"
+                    f"**Name:** {name}\n"
+                    f"**Metric:** {metric}\n"
+                    f"**Start:** {start_date}\n"
+                    f"**End:** {end_date}"
+                )
+            else:
+                await interaction.followup.send("❌ Failed to add competition.", ephemeral=True)
+                
+        except ValueError:
+            await interaction.followup.send(
+                "❌ Invalid date format. Please use YYYY-MM-DD HH:MM format.",
+                ephemeral=True
+            )
+            
+    async def comp_update(self, interaction, comp_id: int, winner: str, second_place: str, third_place: str):
+        """
+        Update a competition with the winners
+        
+        Args:
+            comp_id (int): The ID of the competition to update
+            winner (str): RSN of the winner
+            second_place (str): RSN of second place
+            third_place (str): RSN of third place
+        """
+        await interaction.response.defer()
+        
+        # Get the competition details
+        comp = self.bot.selectOne(
+            f"SELECT comp_name, comp_type FROM competition WHERE comp_id = {comp_id}"
+        )
+        
+        if comp is None:
+            await interaction.followup.send(f"❌ Competition with ID {comp_id} not found.", ephemeral=True)
+            return
+            
+        if comp[1] != self.comp_type:
+            await interaction.followup.send(
+                f"❌ Competition {comp_id} is not a {self.get_comp_name()} competition.",
+                ephemeral=True
+            )
+            return
+            
+        # Get the member IDs for the winners
+        winner_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{winner}'")
+        second_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{second_place}'")
+        third_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{third_place}'")
+        
+        if not all([winner_id, second_id, third_id]):
+            await interaction.followup.send(
+                "❌ One or more winners not found in the database. Please check the RSNs.",
+                ephemeral=True
+            )
+            return
+            
+        # Update the competition with the winners
         success = self.bot.execute_query(
-            f"INSERT INTO competition (comp_id, comp_name, winner, competition_type) VALUES ({next_id}, '{name}', {winner_id}, '{self.comp_type}')"
+            f"UPDATE competition SET winner = {winner_id[0]}, second_place = {second_id[0]}, third_place = {third_id[0]} "
+            f"WHERE comp_id = {comp_id}"
         )
         
         if success:
-            # Update the winner's points and wins
+            # Update points for all winners
             self.bot.execute_query(
-                f"UPDATE member SET {self.points_column} = {self.points_column} + 1, {self.points_life_column} = {self.points_life_column} + 1 WHERE _id = {winner_id}"
+                f"UPDATE member SET {self.points_column} = {self.points_column} + 3, "
+                f"{self.points_life_column} = {self.points_life_column} + 3 "
+                f"WHERE _id = {winner_id[0]}"
             )
             
-            # Get the current wins array
-            result = self.bot.selectOne(f"SELECT {self.wins_column} FROM member WHERE _id = {winner_id}")
-            if result and result[0]:
-                wins = result[0]
-                # Add the new win to the array
-                wins.append(name)
-                # Update the wins array
-                self.bot.execute_query(
-                    f"UPDATE member SET {self.wins_column} = ARRAY{wins} WHERE _id = {winner_id}"
-                )
-            else:
-                # Initialize the wins array with the new win
-                self.bot.execute_query(
-                    f"UPDATE member SET {self.wins_column} = ARRAY['{name}'] WHERE _id = {winner_id}"
-                )
-                
-        return success
-        
+            self.bot.execute_query(
+                f"UPDATE member SET {self.points_column} = {self.points_column} + 2, "
+                f"{self.points_life_column} = {self.points_life_column} + 2 "
+                f"WHERE _id = {second_id[0]}"
+            )
+            
+            self.bot.execute_query(
+                f"UPDATE member SET {self.points_column} = {self.points_column} + 1, "
+                f"{self.points_life_column} = {self.points_life_column} + 1 "
+                f"WHERE _id = {third_id[0]}"
+            )
+            
+            await interaction.followup.send(
+                f"✅ Updated competition results for **{comp[0]}**:\n"
+                f"🥇 **Winner:** {winner} (+3 points)\n"
+                f"🥈 **Second Place:** {second_place} (+2 points)\n"
+                f"🥉 **Third Place:** {third_place} (+1 point)"
+            )
+        else:
+            await interaction.followup.send("❌ Failed to update competition results.", ephemeral=True)
+            
     def get_competitions(self, limit=10):
         """
         Get the most recent competitions
@@ -163,13 +237,12 @@ class Competition(commands.Cog, ABC):
             list: A list of competitions
         """
         return self.bot.selectMany(
-            f"SELECT c.comp_id, c.comp_name, m.rsn, c.competition_type FROM competition c "
+            f"SELECT c.comp_id, c.comp_name, m.rsn, c.comp_type, c.end_date FROM competition c "
             f"JOIN member m ON c.winner = m._id "
-            f"WHERE c.competition_type = '{self.comp_type}' "
+            f"WHERE c.comp_type = '{self.comp_type}' "
             f"ORDER BY c.comp_id DESC LIMIT {limit}"
         )
         
-    @app_commands.command(name="comp-history", description="Show the recent competition history")
     async def comp_history(self, interaction):
         await interaction.response.defer()
         
@@ -182,7 +255,9 @@ class Competition(commands.Cog, ABC):
         # Format the competition history
         history = f"**Recent {self.get_comp_name()} Competitions**\n\n"
         
-        for comp_id, comp_name, winner_rsn, comp_type in competitions:
-            history += f"**{comp_name}** - Won by **{winner_rsn}**\n"
+        for comp_id, comp_name, winner_rsn, comp_type, end_date in competitions:
+            # Format the date in dd-mm-yyyy notation
+            formatted_date = end_date.strftime("%d-%m-%Y") if end_date else "Unknown"
+            history += f"**{comp_name}**  [{formatted_date}] - Won by **{winner_rsn}**\n"
             
         await interaction.followup.send(history) 
