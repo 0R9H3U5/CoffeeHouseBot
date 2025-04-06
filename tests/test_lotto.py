@@ -221,7 +221,7 @@ async def test_select_winner_valid(mock_bot, mock_interaction):
         field_names = [field.name for field in embed.fields]
         assert "Lottery ID" in field_names
         assert "Winner" in field_names
-        assert "Total Entries" in field_names
+        assert "Entries/Total" in field_names
 
 # Test the select_winner command with non-existent lottery
 @pytest.mark.asyncio

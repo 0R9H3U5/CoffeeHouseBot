@@ -71,55 +71,68 @@ class Admin(commands.Cog):
             
         await interaction.response.defer()
         
-        user = self.bot.selectOne(f"SELECT * FROM member WHERE rsn ILIKE '{user_rsn}' OR '{user_rsn}' ILIKE ANY (alt_rsn);")
-        if (user is None):
+        # Get column names from the database
+        columns = self.bot.selectMany("SELECT column_name FROM information_schema.columns WHERE table_name = 'member' ORDER BY ordinal_position")
+        column_names = [col[0] for col in columns]
+        
+        # Query the member data
+        user_data = self.bot.selectOne(f"SELECT * FROM member WHERE rsn ILIKE '{user_rsn}' OR '{user_rsn}' ILIKE ANY (alt_rsn);")
+        if user_data is None:
             await interaction.followup.send(f'No members found with rsn or alt of {user_rsn}')
             return
-
+            
+        # Create a dictionary mapping column names to values
+        user = dict(zip(column_names, user_data))
+        print(f"user: {user}")
         # Create an embed for the member information
         embed = discord.Embed(
-            title=f"Member Information: {user[1]}",
+            title=f"Member Information: {user['rsn']}",
             color=discord.Color.blue(),
             timestamp=datetime.datetime.now()
         )
         
         # Add member details to the embed
-        embed.add_field(name="RSN", value=user[1], inline=True)
-        embed.add_field(name="Discord ID", value=user[3] or "Not linked", inline=True)
+        embed.add_field(name="RSN", value=user['rsn'], inline=True)
+        embed.add_field(name="Discord ID", value=user['discord_id'] or "Not linked", inline=True)
         
         # Get membership level name
         try:
-            membership_level = self.bot.getConfigValue("mem_level_names")[int(user[4])]
+            membership_level = self.bot.getConfigValue("mem_level_names")[int(user['membership_level'])]
         except (IndexError, TypeError, ValueError):
             membership_level = "Unknown"
             
         embed.add_field(name="Membership Level", value=membership_level, inline=True)
         
         # Get next promotion date
-        next_promotion = self.bot.getNextMemLvlDate(user[4], user[5])
+        next_promotion = self.bot.getNextMemLvlDate(user['membership_level'], user['join_date'])
         if next_promotion:
             next_promotion_str = next_promotion.strftime("%d/%m/%Y")
         else:
             next_promotion_str = "No upcoming promotion"
             
         embed.add_field(name="Next Promotion Date", value=next_promotion_str, inline=True)
-        embed.add_field(name="Skill Comp Points", value=user[11] or "0", inline=True)
+        
+        # Calculate total competition points (skill + boss)
+        skill_comp_pts = user['skill_comp_pts'] or 0
+        boss_comp_pts = user['boss_comp_pts'] or 0
+        total_comp_pts = skill_comp_pts + boss_comp_pts
+        embed.add_field(name="Competition Points", value=str(total_comp_pts), inline=True)
         
         # Format boolean values
-        on_leave = "Yes" if user[9] else "No"
-        active = "Yes" if user[10] else "No"
+        on_leave = "Yes" if user['on_leave'] else "No"
+        active = "Yes" if user['active'] else "No"
         
         embed.add_field(name="On Leave", value=on_leave, inline=True)
         embed.add_field(name="Active", value=active, inline=True)
         
         # Format arrays
-        alt_rsn = user[8]
+        alt_rsn = user['alt_rsn']
         if alt_rsn and isinstance(alt_rsn, (list, tuple)) and len(alt_rsn) > 0:
             alt_rsn_str = ", ".join(alt_rsn)
         else:
             alt_rsn_str = "None"
             
-        prev_rsn = user[7]
+        prev_rsn = user['previous_rsn']
         if prev_rsn and isinstance(prev_rsn, (list, tuple)) and len(prev_rsn) > 0:
             prev_rsn_str = ", ".join(prev_rsn)
         else:
@@ -129,9 +142,8 @@ class Admin(commands.Cog):
         embed.add_field(name="Previous RSNs", value=prev_rsn_str, inline=False)
         
         # Add notes if available
-        print(f'User: {user}')
-        if user[15]:  # notes field is at index 15
-            embed.add_field(name="Other Notes", value=user[15], inline=False)
+        if user['notes']:
+            embed.add_field(name="Other Notes", value=user['notes'], inline=False)
             
         # Set footer with timestamp
         embed.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.display_avatar.url)

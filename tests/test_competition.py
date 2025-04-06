@@ -7,8 +7,8 @@ import os
 # Add the parent directory to the path so we can import the cogs
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Create a mock version of SkillComp for testing
-class MockSkillComp:
+# Create a mock version of Competition for testing
+class MockCompetition:
     def __init__(self, bot):
         self.bot = bot
         self.comp_type = self.get_comp_type()
@@ -16,13 +16,13 @@ class MockSkillComp:
         self.points_life_column = f"{self.comp_type}_comp_pts_life"
         
     def get_comp_type(self):
-        return "skill"
+        return "comp"
         
     def get_comp_name(self):
-        return "skill competition"
+        return "competition"
         
     # Mock the command methods
-    async def skill_comp_points(self, interaction):
+    async def comp_points(self, interaction):
         await interaction.response.defer()
         user = self.bot.selectOne(f"SELECT discord_id, {self.points_column} FROM member WHERE discord_id_num={interaction.user.id}")
         if user is None:
@@ -31,7 +31,7 @@ class MockSkillComp:
             
         await interaction.followup.send(f"**{interaction.user.name}** you currently have **{user[1]}** points from {self.get_comp_name()} competitions.")
         
-    async def skill_comp_leaderboard(self, interaction):
+    async def comp_leaderboard(self, interaction):
         await interaction.response.defer()
         members = self.bot.selectMany(f"SELECT rsn, {self.points_column} FROM member WHERE {self.points_column} > 0 ORDER BY {self.points_column} DESC")
         if not members:
@@ -62,14 +62,16 @@ class MockSkillComp:
         
         return leaderboard
         
-    async def skill_comp_wins(self, interaction):
+    async def comp_wins(self, interaction):
         await interaction.response.defer()
+        
+        # Get the user's _id from the member table
         user = self.bot.selectOne(f"SELECT _id FROM member WHERE discord_id_num={interaction.user.id}")
         if user is None:
             await interaction.followup.send(f"**{interaction.user.name}** you are not registered in our database.", ephemeral=True)
             return
             
-        # Get the user's competition wins
+        # Get the user's competition wins using the foreign key relationship
         wins = self.bot.selectMany(
             f"SELECT comp_name FROM competition WHERE winner = {user[0]} AND competition_type = '{self.comp_type}' ORDER BY comp_id DESC"
         )
@@ -107,7 +109,7 @@ class MockSkillComp:
             f"ORDER BY c.comp_id DESC LIMIT {limit}"
         )
         
-    async def skill_comp_history(self, interaction):
+    async def comp_history(self, interaction):
         await interaction.response.defer()
         competitions = self.get_competitions(limit=5)
         if not competitions:
@@ -120,46 +122,46 @@ class MockSkillComp:
             
         await interaction.followup.send(message)
 
-# Test the skill_comp_points command with a registered user
+# Test the comp_points command with a registered user
 @pytest.mark.asyncio
-async def test_skill_comp_points_registered_user(mock_bot, mock_interaction):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+async def test_comp_points_registered_user(mock_bot, mock_interaction):
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
     # Mock the bot's selectOne method to return user data
     mock_bot.selectOne = MagicMock(return_value=("User#1234", 15))
     
     # Call the method directly
-    await skill_comp_cog.skill_comp_points(mock_interaction)
+    await comp_cog.comp_points(mock_interaction)
     
     # Verify that the interaction was deferred
     mock_interaction.response.defer.assert_called_once()
     
     # Verify that selectOne was called with the correct query
-    mock_bot.selectOne.assert_called_once_with(f"SELECT discord_id, skill_comp_pts FROM member WHERE discord_id_num={mock_interaction.user.id}")
+    mock_bot.selectOne.assert_called_once_with(f"SELECT discord_id, comp_comp_pts FROM member WHERE discord_id_num={mock_interaction.user.id}")
     
     # Verify that followup.send was called with the correct message
     mock_interaction.followup.send.assert_called_once_with(
-        f"**{mock_interaction.user.name}** you currently have **15** points from skill competition competitions."
+        f"**{mock_interaction.user.name}** you currently have **15** points from competition competitions."
     )
 
-# Test the skill_comp_points command with an unregistered user
+# Test the comp_points command with an unregistered user
 @pytest.mark.asyncio
-async def test_skill_comp_points_unregistered_user(mock_bot, mock_interaction):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+async def test_comp_points_unregistered_user(mock_bot, mock_interaction):
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
     # Mock the bot's selectOne method to return None (user not found)
     mock_bot.selectOne = MagicMock(return_value=None)
     
     # Call the method directly
-    await skill_comp_cog.skill_comp_points(mock_interaction)
+    await comp_cog.comp_points(mock_interaction)
     
     # Verify that the interaction was deferred
     mock_interaction.response.defer.assert_called_once()
     
     # Verify that selectOne was called with the correct query
-    mock_bot.selectOne.assert_called_once_with(f"SELECT discord_id, skill_comp_pts FROM member WHERE discord_id_num={mock_interaction.user.id}")
+    mock_bot.selectOne.assert_called_once_with(f"SELECT discord_id, comp_comp_pts FROM member WHERE discord_id_num={mock_interaction.user.id}")
     
     # Verify that followup.send was called with the correct error message
     mock_interaction.followup.send.assert_called_once_with(
@@ -167,11 +169,11 @@ async def test_skill_comp_points_unregistered_user(mock_bot, mock_interaction):
         ephemeral=True
     )
 
-# Test the skill_comp_leaderboard command with members having points
+# Test the comp_leaderboard command with members having points
 @pytest.mark.asyncio
-async def test_skill_comp_leaderboard_with_members(mock_bot, mock_interaction):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+async def test_comp_leaderboard_with_members(mock_bot, mock_interaction):
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
     # Mock the bot's selectMany method to return member data
     mock_bot.selectMany = MagicMock(return_value=[
@@ -182,14 +184,14 @@ async def test_skill_comp_leaderboard_with_members(mock_bot, mock_interaction):
     ])
     
     # Call the method directly
-    await skill_comp_cog.skill_comp_leaderboard(mock_interaction)
+    await comp_cog.comp_leaderboard(mock_interaction)
     
     # Verify that the interaction was deferred
     mock_interaction.response.defer.assert_called_once()
     
     # Verify that selectMany was called with the correct query
     mock_bot.selectMany.assert_called_once_with(
-        "SELECT rsn, skill_comp_pts FROM member WHERE skill_comp_pts > 0 ORDER BY skill_comp_pts DESC"
+        "SELECT rsn, comp_comp_pts FROM member WHERE comp_comp_pts > 0 ORDER BY comp_comp_pts DESC"
     )
     
     # Verify that followup.send was called with a formatted leaderboard
@@ -205,35 +207,35 @@ async def test_skill_comp_leaderboard_with_members(mock_bot, mock_interaction):
     assert "★" in call_args[0][0]  # Check for the star symbol for users with >12 points
     assert "Total players: 4" in call_args[0][0]
 
-# Test the skill_comp_leaderboard command with no members having points
+# Test the comp_leaderboard command with no members having points
 @pytest.mark.asyncio
-async def test_skill_comp_leaderboard_no_members(mock_bot, mock_interaction):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+async def test_comp_leaderboard_no_members(mock_bot, mock_interaction):
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
     # Mock the bot's selectMany method to return an empty list
     mock_bot.selectMany = MagicMock(return_value=[])
     
     # Call the method directly
-    await skill_comp_cog.skill_comp_leaderboard(mock_interaction)
+    await comp_cog.comp_leaderboard(mock_interaction)
     
     # Verify that the interaction was deferred
     mock_interaction.response.defer.assert_called_once()
     
     # Verify that selectMany was called with the correct query
     mock_bot.selectMany.assert_called_once_with(
-        "SELECT rsn, skill_comp_pts FROM member WHERE skill_comp_pts > 0 ORDER BY skill_comp_pts DESC"
+        "SELECT rsn, comp_comp_pts FROM member WHERE comp_comp_pts > 0 ORDER BY comp_comp_pts DESC"
     )
     
     # Verify that followup.send was called with the correct message
     mock_interaction.followup.send.assert_called_once_with(
-        "No members have any skill competition competition points yet."
+        "No members have any competition competition points yet."
     )
 
 # Test the format_leaderboard method with members
 def test_format_leaderboard_with_members():
-    # Create a MockSkillComp with a mock bot
-    skill_comp_cog = MockSkillComp(MagicMock())
+    # Create a MockCompetition with a mock bot
+    comp_cog = MockCompetition(MagicMock())
     
     # Test data
     members = [
@@ -244,7 +246,7 @@ def test_format_leaderboard_with_members():
     ]
     
     # Call the method
-    result = skill_comp_cog.format_leaderboard(members)
+    result = comp_cog.format_leaderboard(members)
     
     # Verify the result contains the expected elements
     assert "User1" in result
@@ -264,23 +266,23 @@ def test_format_leaderboard_with_members():
 
 # Test the format_leaderboard method with no members
 def test_format_leaderboard_no_members():
-    # Create a MockSkillComp with a mock bot
-    skill_comp_cog = MockSkillComp(MagicMock())
+    # Create a MockCompetition with a mock bot
+    comp_cog = MockCompetition(MagicMock())
     
     # Call the method with an empty list
-    result = skill_comp_cog.format_leaderboard([])
+    result = comp_cog.format_leaderboard([])
     
     # Verify the result is the expected message
     assert result == "No members found."
 
-# Test the skill_comp_wins command with a registered user with wins
+# Test the comp_wins command with a registered user with wins
 @pytest.mark.asyncio
-async def test_skill_comp_wins_with_wins(mock_bot, mock_interaction):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+async def test_comp_wins_with_wins(mock_bot, mock_interaction):
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
-    # Mock the bot's selectOne method to return user data with _id
-    mock_bot.selectOne = MagicMock(return_value=(123,))  # 123 is the _id of the user
+    # Mock the bot's selectOne method to return user data
+    mock_bot.selectOne = MagicMock(return_value=(1,))  # Return _id instead of discord_id
     
     # Mock the bot's selectMany method to return competition wins
     mock_bot.selectMany = MagicMock(return_value=[
@@ -290,7 +292,7 @@ async def test_skill_comp_wins_with_wins(mock_bot, mock_interaction):
     ])
     
     # Call the method directly
-    await skill_comp_cog.skill_comp_wins(mock_interaction)
+    await comp_cog.comp_wins(mock_interaction)
     
     # Verify that the interaction was deferred
     mock_interaction.response.defer.assert_called_once()
@@ -300,7 +302,7 @@ async def test_skill_comp_wins_with_wins(mock_bot, mock_interaction):
     
     # Verify that selectMany was called with the correct query
     mock_bot.selectMany.assert_called_once_with(
-        f"SELECT comp_name FROM competition WHERE winner = 123 AND competition_type = 'skill' ORDER BY comp_id DESC"
+        f"SELECT comp_name FROM competition WHERE winner = 1 AND competition_type = 'comp' ORDER BY comp_id DESC"
     )
     
     # Verify that followup.send was called with the correct messages
@@ -308,7 +310,7 @@ async def test_skill_comp_wins_with_wins(mock_bot, mock_interaction):
     
     # Check the summary message
     mock_interaction.followup.send.assert_any_call(
-        f"**{mock_interaction.user.name}** you have won **3** skill competition competitions:"
+        f"**{mock_interaction.user.name}** you have won **3** competition competitions:"
     )
     
     # Check the win messages
@@ -316,20 +318,20 @@ async def test_skill_comp_wins_with_wins(mock_bot, mock_interaction):
     mock_interaction.followup.send.assert_any_call(" - Win2")
     mock_interaction.followup.send.assert_any_call(" - Win3")
 
-# Test the skill_comp_wins command with a registered user with no wins
+# Test the comp_wins command with a registered user with no wins
 @pytest.mark.asyncio
-async def test_skill_comp_wins_no_wins(mock_bot, mock_interaction):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+async def test_comp_wins_no_wins(mock_bot, mock_interaction):
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
-    # Mock the bot's selectOne method to return user data with _id
-    mock_bot.selectOne = MagicMock(return_value=(123,))  # 123 is the _id of the user
+    # Mock the bot's selectOne method to return user data
+    mock_bot.selectOne = MagicMock(return_value=(1,))  # Return _id instead of discord_id
     
     # Mock the bot's selectMany method to return no wins
     mock_bot.selectMany = MagicMock(return_value=[])
     
     # Call the method directly
-    await skill_comp_cog.skill_comp_wins(mock_interaction)
+    await comp_cog.comp_wins(mock_interaction)
     
     # Verify that the interaction was deferred
     mock_interaction.response.defer.assert_called_once()
@@ -339,42 +341,42 @@ async def test_skill_comp_wins_no_wins(mock_bot, mock_interaction):
     
     # Verify that selectMany was called with the correct query
     mock_bot.selectMany.assert_called_once_with(
-        f"SELECT comp_name FROM competition WHERE winner = 123 AND competition_type = 'skill' ORDER BY comp_id DESC"
+        f"SELECT comp_name FROM competition WHERE winner = 1 AND competition_type = 'comp' ORDER BY comp_id DESC"
     )
     
     # Verify that followup.send was called with the correct message
     mock_interaction.followup.send.assert_called_once_with(
-        f"**{mock_interaction.user.name}** you have not won any skill competition competitions yet."
+        f"**{mock_interaction.user.name}** you have not won any competition competitions yet."
     )
 
-# Test the skill_comp_history command with competitions
+# Test the comp_history command with competitions
 @pytest.mark.asyncio
-async def test_skill_comp_history_with_competitions(mock_bot, mock_interaction):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+async def test_comp_history_with_competitions(mock_bot, mock_interaction):
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
     # Mock the get_competitions method to return competition data
-    skill_comp_cog.get_competitions = MagicMock(return_value=[
-        (1, "Competition1", "User1", "skill"),
-        (2, "Competition2", "User2", "skill"),
-        (3, "Competition3", "User3", "skill")
+    comp_cog.get_competitions = MagicMock(return_value=[
+        (1, "Competition1", "User1", "comp"),
+        (2, "Competition2", "User2", "comp"),
+        (3, "Competition3", "User3", "comp")
     ])
     
     # Call the method directly
-    await skill_comp_cog.skill_comp_history(mock_interaction)
+    await comp_cog.comp_history(mock_interaction)
     
     # Verify that the interaction was deferred
     mock_interaction.response.defer.assert_called_once()
     
     # Verify that get_competitions was called
-    skill_comp_cog.get_competitions.assert_called_once()
+    comp_cog.get_competitions.assert_called_once()
     
     # Verify that followup.send was called with the correct message
     mock_interaction.followup.send.assert_called_once()
     call_args = mock_interaction.followup.send.call_args
     
     # Check that the message contains the competition history
-    assert "Recent skill competition Competitions" in call_args[0][0]
+    assert "Recent competition Competitions" in call_args[0][0]
     assert "Competition1" in call_args[0][0]
     assert "Competition2" in call_args[0][0]
     assert "Competition3" in call_args[0][0]
@@ -382,33 +384,33 @@ async def test_skill_comp_history_with_competitions(mock_bot, mock_interaction):
     assert "User2" in call_args[0][0]
     assert "User3" in call_args[0][0]
 
-# Test the skill_comp_history command with no competitions
+# Test the comp_history command with no competitions
 @pytest.mark.asyncio
-async def test_skill_comp_history_no_competitions(mock_bot, mock_interaction):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+async def test_comp_history_no_competitions(mock_bot, mock_interaction):
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
     # Mock the get_competitions method to return an empty list
-    skill_comp_cog.get_competitions = MagicMock(return_value=[])
+    comp_cog.get_competitions = MagicMock(return_value=[])
     
     # Call the method directly
-    await skill_comp_cog.skill_comp_history(mock_interaction)
+    await comp_cog.comp_history(mock_interaction)
     
     # Verify that the interaction was deferred
     mock_interaction.response.defer.assert_called_once()
     
     # Verify that get_competitions was called
-    skill_comp_cog.get_competitions.assert_called_once()
+    comp_cog.get_competitions.assert_called_once()
     
     # Verify that followup.send was called with the correct message
     mock_interaction.followup.send.assert_called_once_with(
-        "No skill competition competitions have been recorded yet."
+        "No competition competitions have been recorded yet."
     )
 
 # Test the add_competition method
 def test_add_competition(mock_bot):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
     # Mock the bot's selectOne method to return the next competition ID
     mock_bot.selectOne = MagicMock(return_value=(5,))
@@ -417,17 +419,17 @@ def test_add_competition(mock_bot):
     mock_bot.execute_query = MagicMock(return_value=True)
     
     # Call the method
-    result = skill_comp_cog.add_competition("Test Competition", 1)
+    result = comp_cog.add_competition("Test Competition", 1)
     
     # Verify that selectOne was called with the correct query
     mock_bot.selectOne.assert_called_once_with("SELECT MAX(comp_id) FROM competition")
     
     # Verify that execute_query was called with the correct queries
     mock_bot.execute_query.assert_any_call(
-        "INSERT INTO competition (comp_id, comp_name, winner, competition_type) VALUES (6, 'Test Competition', 1, 'skill')"
+        "INSERT INTO competition (comp_id, comp_name, winner, competition_type) VALUES (6, 'Test Competition', 1, 'comp')"
     )
     mock_bot.execute_query.assert_any_call(
-        "UPDATE member SET skill_comp_pts = skill_comp_pts + 1, skill_comp_pts_life = skill_comp_pts_life + 1 WHERE _id = 1"
+        "UPDATE member SET comp_comp_pts = comp_comp_pts + 1, comp_comp_pts_life = comp_comp_pts_life + 1 WHERE _id = 1"
     )
     
     # Verify that the result is True
@@ -435,29 +437,29 @@ def test_add_competition(mock_bot):
 
 # Test the get_competitions method
 def test_get_competitions(mock_bot):
-    # Create a MockSkillComp with the mock bot
-    skill_comp_cog = MockSkillComp(mock_bot)
+    # Create a MockCompetition with the mock bot
+    comp_cog = MockCompetition(mock_bot)
     
     # Mock the bot's selectMany method to return competition data
     mock_bot.selectMany = MagicMock(return_value=[
-        (1, "Competition1", "User1", "skill"),
-        (2, "Competition2", "User2", "skill"),
-        (3, "Competition3", "User3", "skill")
+        (1, "Competition1", "User1", "comp"),
+        (2, "Competition2", "User2", "comp"),
+        (3, "Competition3", "User3", "comp")
     ])
     
     # Call the method
-    result = skill_comp_cog.get_competitions(limit=3)
+    result = comp_cog.get_competitions(limit=3)
     
     # Verify that selectMany was called with the correct query
     mock_bot.selectMany.assert_called_once_with(
         "SELECT c.comp_id, c.comp_name, m.rsn, c.competition_type FROM competition c "
         "JOIN member m ON c.winner = m._id "
-        "WHERE c.competition_type = 'skill' "
+        "WHERE c.competition_type = 'comp' "
         "ORDER BY c.comp_id DESC LIMIT 3"
     )
     
     # Verify that the result is correct
     assert len(result) == 3
-    assert result[0] == (1, "Competition1", "User1", "skill")
-    assert result[1] == (2, "Competition2", "User2", "skill")
-    assert result[2] == (3, "Competition3", "User3", "skill") 
+    assert result[0] == (1, "Competition1", "User1", "comp")
+    assert result[1] == (2, "Competition2", "User2", "comp")
+    assert result[2] == (3, "Competition3", "User3", "comp") 

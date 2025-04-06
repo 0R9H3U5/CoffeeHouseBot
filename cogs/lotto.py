@@ -97,7 +97,7 @@ class Lotto(commands.Cog):
         try:
             # Check if lottery exists and get its details
             lottery = self.bot.selectOne(f"""
-                SELECT start_date, end_date, winner_discord_id
+                SELECT start_date, end_date, winner_id
                 FROM lottery
                 WHERE lottery_id = {lottery_id}
             """)
@@ -118,7 +118,7 @@ class Lotto(commands.Cog):
                 return
             
             # Check if winner has already been selected
-            if lottery[2] is not None:  # winner_discord_id
+            if lottery[2] is not None:  # winner_id
                 await interaction.response.send_message(
                     "A winner has already been selected for this lottery.",
                     ephemeral=True
@@ -127,11 +127,11 @@ class Lotto(commands.Cog):
             
             # Get all entries with their weights
             entries = self.bot.selectMany(f"""
-                SELECT discord_id, entries_purchased
+                SELECT member_id, entries_purchased
                 FROM lottery_entries
                 WHERE lottery_id = {lottery_id}
             """)
-            
+            print(f"entries: {entries}")
             if not entries:
                 await interaction.response.send_message(
                     "No entries found for this lottery.",
@@ -141,16 +141,18 @@ class Lotto(commands.Cog):
             
             # Create weighted list for random selection
             weighted_entries = []
+            entries_by_member = {}
             for entry in entries:
-                weighted_entries.extend([entry[0]] * entry[1])  # discord_id, entries_purchased
-            
+                weighted_entries.extend([entry[0]] * entry[1])  # member_id, entries_purchased
+                entries_by_member[entry[0]] = entry[1]
+            print(f"weighted_entries: {weighted_entries}")
             # Select winner
-            winner_discord_id = random.choice(weighted_entries)
+            winner_id = random.choice(weighted_entries)
             
             # Update lottery with winner
             self.bot.execute_query(f"""
                 UPDATE lottery
-                SET winner_discord_id = {winner_discord_id}
+                SET winner_id = {winner_id}
                 WHERE lottery_id = {lottery_id}
             """)
             
@@ -158,7 +160,7 @@ class Lotto(commands.Cog):
             winner = self.bot.selectOne(f"""
                 SELECT rsn, discord_id
                 FROM member
-                WHERE discord_id_num = {winner_discord_id}
+                WHERE _id = {winner_id}
             """)
             
             # Create embed for response
@@ -167,8 +169,8 @@ class Lotto(commands.Cog):
                 color=discord.Color.gold()
             )
             embed.add_field(name="Lottery ID", value=str(lottery_id), inline=True)
-            embed.add_field(name="Winner", value=f"{winner[0]} (<@{winner[1]}>)", inline=True)
-            embed.add_field(name="Total Entries", value=str(len(weighted_entries)), inline=True)
+            embed.add_field(name="Winner", value=f"{winner[0]} (@{winner[1]})", inline=True)
+            embed.add_field(name="Entries/Total", value=f"{entries_by_member[winner_id]}/{str(len(weighted_entries))}", inline=True)
             
             await interaction.response.send_message(embed=embed)
 
@@ -186,7 +188,7 @@ class Lotto(commands.Cog):
         try:
             # Get the most recent active lottery
             lottery = self.bot.selectOne("""
-                SELECT lottery_id, start_date, end_date, entry_fee, max_entries, winner_discord_id
+                SELECT lottery_id, start_date, end_date, entry_fee, max_entries, winner_id
                 FROM lottery
                 WHERE start_date <= CURRENT_TIMESTAMP 
                 AND end_date >= CURRENT_TIMESTAMP
@@ -203,9 +205,9 @@ class Lotto(commands.Cog):
 
             # Get all entries with member details
             entries = self.bot.selectMany(f"""
-                SELECT le.discord_id, le.entries_purchased, m.rsn
+                SELECT le.member_id, le.entries_purchased, m.rsn
                 FROM lottery_entries le
-                JOIN member m ON le.discord_id = m.discord_id_num
+                JOIN member m ON le.member_id = m._id
                 WHERE le.lottery_id = {lottery[0]}
                 ORDER BY le.entries_purchased DESC
             """)
@@ -257,7 +259,7 @@ class Lotto(commands.Cog):
                 
                 # Add top 5 entries
                 entries_text = ""
-                for i, (discord_id, entries_purchased, rsn) in enumerate(entries[:5], 1):
+                for i, (member_id, entries_purchased, rsn) in enumerate(entries[:5], 1):
                     entries_text += f"{i}. {rsn}: {entries_purchased} entries\n"
                 if entries:
                     embed.add_field(

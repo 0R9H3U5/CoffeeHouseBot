@@ -286,7 +286,7 @@ def test_check_database_connection_active(mock_connect):
 # Test the check_database_connection function with lost connection
 @patch('psycopg2.connect')
 def test_check_database_connection_lost(mock_connect):
-    # Create a mock bot with a connection that raises an error
+    # Create a mock bot with a connection
     mock_bot = MagicMock(spec=CoffeeHouseBot)
     mock_conn = MagicMock()
     mock_conn.cursor.side_effect = psycopg2.OperationalError()
@@ -317,6 +317,11 @@ def test_check_database_connection_failed_reconnect(mock_connect):
     mock_conn.cursor.side_effect = psycopg2.OperationalError()
     mock_bot.conn = mock_conn
     
+    # Mock the getDatabaseConnection method to use our patched connect function
+    def mock_get_database_connection():
+        mock_bot.conn = mock_connect()
+    mock_bot.getDatabaseConnection = mock_get_database_connection
+    
     # Mock the new connection to raise an error
     mock_connect.side_effect = Exception("Connection failed")
     
@@ -326,7 +331,10 @@ def test_check_database_connection_failed_reconnect(mock_connect):
     # Verify that connect was called
     mock_connect.assert_called_once()
     
-    # Verify that the result is False
+    # Verify that getDatabaseConnection was called
+    assert mock_bot.getDatabaseConnection.call_count == 1
+    
+    # Verify the result is False
     assert result is False
 
 # Test the selectMany function with active connection

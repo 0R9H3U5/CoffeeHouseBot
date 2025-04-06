@@ -19,7 +19,8 @@ class MockBot:
         }
     
     def selectOne(self, query):
-        # Return a mock member record
+        # Return a mock member record with the correct column names and order
+        # based on the member table definition in sql/create-db.sql
         return (
             1,  # _id
             "TestUser",  # rsn
@@ -32,12 +33,41 @@ class MockBot:
             ["Alt1", "Alt2"],  # alt_rsn
             True,  # on_leave
             True,  # active
-            100,  # skill_comp_points
+            100,  # skill_comp_pts
             50,  # skill_comp_pts_life
+            50,  # boss_comp_pts
+            25,  # boss_comp_pts_life
             "US",  # loc
             "EST",  # timezone
             "Some notes"  # notes
         )
+    
+    def selectMany(self, query):
+        # Return column names for the member table based on sql/create-db.sql
+        if "information_schema.columns" in query:
+            # Return column names in the format expected by the Admin cog
+            # The Admin cog expects a list of tuples where each tuple has a single string element
+            return [
+                ("_id",),
+                ("rsn",),
+                ("discord_id_num",),
+                ("discord_id",),
+                ("membership_level",),
+                ("join_date",),
+                ("special_status",),
+                ("previous_rsn",),
+                ("alt_rsn",),
+                ("on_leave",),
+                ("active",),
+                ("skill_comp_pts",),
+                ("skill_comp_pts_life",),
+                ("boss_comp_pts",),
+                ("boss_comp_pts_life",),
+                ("loc",),
+                ("timezone",),
+                ("notes",)
+            ]
+        return []
     
     def getConfigValue(self, key):
         return self.config.get(key)
@@ -63,6 +93,50 @@ class MockInteraction:
 async def test_view_member_admin(mock_bot, mock_interaction):
     # Create an admin cog with the mock bot
     admin_cog = Admin(mock_bot)
+    
+    # Mock the selectOne method to return the expected data
+    mock_bot.selectOne = MagicMock(return_value=(
+        1,  # _id
+        "TestUser",  # rsn
+        None,  # discord_id_num
+        "123456789",  # discord_id
+        1,  # membership_level
+        datetime.datetime.now().date(),  # join_date
+        None,  # special_status
+        ["OldRSN1", "OldRSN2"],  # previous_rsn
+        ["Alt1", "Alt2"],  # alt_rsn
+        True,  # on_leave
+        True,  # active
+        100,  # skill_comp_pts
+        50,  # skill_comp_pts_life
+        50,  # boss_comp_pts
+        25,  # boss_comp_pts_life
+        "US",  # loc
+        "EST",  # timezone
+        "Some notes"  # notes
+    ))
+    
+    # Mock the selectMany method to return the expected column names in the same order as selectOne
+    mock_bot.selectMany = MagicMock(return_value=[
+        ("_id",),
+        ("rsn",),
+        ("discord_id_num",),
+        ("discord_id",),
+        ("membership_level",),
+        ("join_date",),
+        ("special_status",),
+        ("previous_rsn",),
+        ("alt_rsn",),
+        ("on_leave",),
+        ("active",),
+        ("skill_comp_pts",),
+        ("skill_comp_pts_life",),
+        ("boss_comp_pts",),
+        ("boss_comp_pts_life",),
+        ("loc",),
+        ("timezone",),
+        ("notes",)
+    ])
     
     # Mock the followup.send method to return a value
     mock_interaction.followup.send = AsyncMock(return_value=None)
@@ -97,7 +171,7 @@ async def test_view_member_admin(mock_bot, mock_interaction):
     assert "Discord ID" in field_names
     assert "Membership Level" in field_names
     assert "Next Promotion Date" in field_names
-    assert "Skill Comp Points" in field_names
+    assert "Competition Points" in field_names
     assert "On Leave" in field_names
     assert "Active" in field_names
     assert "Alt RSNs" in field_names
@@ -171,12 +245,36 @@ async def test_view_member_different_data_types(mock_bot, mock_interaction):
         None,  # alt_rsn - test with None
         True,  # on_leave
         True,  # active
-        100,  # skill_comp_points
+        100,  # skill_comp_pts
         50,  # skill_comp_pts_life
+        50,  # boss_comp_pts
+        25,  # boss_comp_pts_life
         "US",  # loc
         "EST",  # timezone
         "Some notes"  # notes
     ))
+    
+    # Mock the selectMany method to return the expected column names in the same order as selectOne
+    mock_bot.selectMany = MagicMock(return_value=[
+        ("_id",),
+        ("rsn",),
+        ("discord_id_num",),
+        ("discord_id",),
+        ("membership_level",),
+        ("join_date",),
+        ("special_status",),
+        ("previous_rsn",),
+        ("alt_rsn",),
+        ("on_leave",),
+        ("active",),
+        ("skill_comp_pts",),
+        ("skill_comp_pts_life",),
+        ("boss_comp_pts",),
+        ("boss_comp_pts_life",),
+        ("loc",),
+        ("timezone",),
+        ("notes",)
+    ])
     
     # Create an admin cog with the mock bot
     admin_cog = Admin(mock_bot)
