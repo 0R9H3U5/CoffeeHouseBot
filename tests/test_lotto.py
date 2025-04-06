@@ -485,11 +485,9 @@ async def test_add_lottery_entry_valid(mock_bot, mock_interaction):
     # Mock the bot's selectOne method to return lottery and member details
     mock_bot.selectOne = MagicMock(side_effect=[
         (1, datetime.datetime.now(), datetime.datetime.now() + datetime.timedelta(days=7), 1000, 5),  # Lottery details
-        (123, "TestUser")  # Member details
+        (123, "TestUser"),  # Member details
+        None  # No existing entries
     ])
-    
-    # Mock the bot's selectMany method to return no existing entries
-    mock_bot.selectMany = MagicMock(return_value=[])
     
     # Mock the bot's execute_query method
     mock_bot.execute_query = MagicMock()
@@ -500,8 +498,11 @@ async def test_add_lottery_entry_valid(mock_bot, mock_interaction):
     # Call the callback function directly with valid parameters
     await callback(lotto_cog, mock_interaction, "TestUser", 3)
     
-    # Verify that selectOne was called to get lottery and member details
-    assert mock_bot.selectOne.call_count == 2
+    # Verify that selectOne was called three times:
+    # 1. To get lottery details
+    # 2. To get member details
+    # 3. To check for existing entries
+    assert mock_bot.selectOne.call_count == 3
     
     # Verify that execute_query was called to insert the entries
     mock_bot.execute_query.assert_called_once()
@@ -547,7 +548,7 @@ async def test_add_lottery_entry_no_active(mock_bot, mock_interaction):
     
     # Verify that response.send_message was called with an error message
     mock_interaction.response.send_message.assert_called_once_with(
-        "There is currently no active lottery.",
+        "There is currently no active lottery to add entries to.",
         ephemeral=True
     )
     

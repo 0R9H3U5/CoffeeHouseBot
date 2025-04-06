@@ -68,7 +68,7 @@ class Lotto(commands.Cog):
             )
             embed.add_field(name="Start Date", value=start_datetime.strftime("%Y-%m-%d %H:%M"), inline=True)
             embed.add_field(name="End Date", value=end_datetime.strftime("%Y-%m-%d %H:%M"), inline=True)
-            embed.add_field(name="Entry Fee", value=f"{entry_fee} coins", inline=True)
+            embed.add_field(name="Entry Fee", value=self.bot.format_money(entry_fee, "gp"), inline=True)
             embed.add_field(name="Max Entries", value=str(max_entries), inline=True)
             embed.add_field(name="Lottery ID", value=str(lottery_id), inline=True)
             
@@ -239,7 +239,7 @@ class Lotto(commands.Cog):
             )
             embed.add_field(
                 name="Entry Fee",
-                value=f"{lottery[3]} gp",
+                value=self.bot.format_money(lottery[3], "gp"),
                 inline=True
             )
             embed.add_field(
@@ -254,6 +254,11 @@ class Lotto(commands.Cog):
                 embed.add_field(
                     name="Total Entries",
                     value=str(total_entries),
+                    inline=True
+                )
+                embed.add_field(
+                    name="Total Pot",
+                    value=self.bot.format_money(total_entries*lottery[3], "gp"),
                     inline=True
                 )
                 
@@ -319,7 +324,7 @@ class Lotto(commands.Cog):
             
             if not lottery:
                 await interaction.response.send_message(
-                    "There is currently no active lottery.",
+                    "There is currently no active lottery to add entries to.",
                     ephemeral=True
                 )
                 return
@@ -387,8 +392,8 @@ class Lotto(commands.Cog):
             embed.add_field(name="Member", value=member_rsn, inline=True)
             embed.add_field(name="Entries Added", value=str(num_entries), inline=True)
             embed.add_field(name="Total Entries", value=str(total_entries), inline=True)
-            embed.add_field(name="Entry Fee", value=f"{entry_fee} gp", inline=True)
-            embed.add_field(name="Total Cost", value=f"{entry_fee * num_entries} gp", inline=True)
+            embed.add_field(name="Entry Fee", value=self.bot.format_money(entry_fee, "gp"), inline=True)
+            embed.add_field(name="Total Cost", value=self.bot.format_money(entry_fee * num_entries, "gp"), inline=True)
             
             await interaction.response.send_message(embed=embed)
             
