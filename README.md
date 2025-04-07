@@ -22,7 +22,7 @@ Configuration values are loaded from config.json. There is a template file of so
 
 ### .env
 This bot expects a .env file in the root of the project. This is how it obtains the guild id and the discord auth token.
-Simply rename the .env.tmpl file to .env and update with missing values.
+Simply rename the .env.tmpl file to .env and update with missing values.<br>
 **_NOTE:_**  For more info on obtaining an auth token see https://discord.com/developers/docs/quick-start/getting-started#fetching-your-credentials
 
 ## Design
