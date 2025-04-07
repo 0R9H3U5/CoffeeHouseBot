@@ -188,14 +188,56 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         return self.configs[key]
 
     def getDatabaseConnection(self):
+        """
+        Establish a connection to the PostgreSQL database.
+        If a connection already exists, it will be closed before creating a new one.
+        If there's an aborted transaction, it will be rolled back.
+        """
+        # Close existing connection if it exists
+        if hasattr(self, 'conn') and self.conn is not None:
+            try:
+                # Check if there's an aborted transaction
+                cursor = self.conn.cursor()
+                cursor.execute("SELECT 1")
+                cursor.close()
+            except psycopg2.OperationalError as e:
+                if "current transaction is aborted" in str(e):
+                    # Roll back the aborted transaction
+                    try:
+                        self.conn.rollback()
+                        print("Rolled back aborted transaction")
+                    except Exception as rollback_error:
+                        print(f"Error rolling back transaction: {rollback_error}")
+                # Close the connection
+                try:
+                    self.conn.close()
+                    print("Closed existing connection with issues")
+                except Exception as close_error:
+                    print(f"Error closing connection: {close_error}")
+            except Exception as e:
+                # For any other error, try to close the connection
+                try:
+                    self.conn.close()
+                    print("Closed existing connection due to error")
+                except Exception as close_error:
+                    print(f"Error closing connection: {close_error}")
+        
+        # Get database connection parameters
         db_name = self.getConfigValue("db_name")
         db_user = self.getConfigValue("db_user")
         db_pw = self.getConfigValue("db_pw")
         db_host = self.getConfigValue("db_host")
         db_port = self.getConfigValue("db_port")
-        # self.conn = psycopg2.connect(dbname=db_name, user=db_user, password=db_pw, host=db_host, port='5432', sslmode='require')
-        self.conn = psycopg2.connect(f'postgres://{db_user}:{db_pw}@{db_host}:{db_port}/{db_name}?sslmode=require')
-        print(f'Successful connection to database - {self.conn.get_dsn_parameters()}')
+        
+        # Establish a new connection
+        try:
+            self.conn = psycopg2.connect(f'postgres://{db_user}:{db_pw}@{db_host}:{db_port}/{db_name}?sslmode=require')
+            print(f'Successful connection to database - {self.conn.get_dsn_parameters()}')
+            return True
+        except Exception as e:
+            print(f"Failed to connect to database: {e}")
+            self.conn = None
+            return False
 
     def check_database_connection(self):
         """Check if the database connection is active and reconnect if needed."""
@@ -205,18 +247,14 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             cursor.execute('SELECT 1')
             cursor.close()
             return True
-        except (psycopg2.OperationalError, psycopg2.InterfaceError):
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             # Connection is not active, attempt to reconnect
-            try:
-                print("Database connection lost. Attempting to reconnect...")
-                self.getDatabaseConnection()
-                return True
-            except Exception as e:
-                print(f"Failed to reconnect to database: {e}")
-                return False
+            print(f"Database connection issue detected: {e}")
+            return self.getDatabaseConnection()
         except Exception as e:
             print(f"Error checking database connection: {e}")
-            return False
+            # Try to reconnect as a fallback
+            return self.getDatabaseConnection()
 
     def selectMany(self, query):
         if not self.check_database_connection():
@@ -225,12 +263,16 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         try:
             cursor = self.conn.cursor()
             cursor.execute(query)
-            return cursor.fetchall()
-        except (Exception, psycopg2.Error) as error:
-            print("Error while fetching data from PostgreSQL", error)
-            return None
-        finally:
+            result = cursor.fetchall()
             cursor.close()
+            return result
+        except (Exception, psycopg2.Error) as error:
+            print(f"Error while fetching data from PostgreSQL: {error}")
+            # If there's a transaction issue, try to reconnect
+            if "current transaction is aborted" in str(error):
+                print("Transaction aborted, attempting to reconnect...")
+                self.getDatabaseConnection()
+            return None
     
     def selectOne(self, query):
         if not self.check_database_connection():
@@ -239,12 +281,16 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         try:
             cursor = self.conn.cursor()
             cursor.execute(query)
-            return cursor.fetchone()
-        except (Exception, psycopg2.Error) as error:
-            print("Error while fetching data from PostgreSQL", error)
-            return None
-        finally:
+            result = cursor.fetchone()
             cursor.close()
+            return result
+        except (Exception, psycopg2.Error) as error:
+            print(f"Error while fetching data from PostgreSQL: {error}")
+            # If there's a transaction issue, try to reconnect
+            if "current transaction is aborted" in str(error):
+                print("Transaction aborted, attempting to reconnect...")
+                self.getDatabaseConnection()
+            return None
             
     def execute_query(self, query):
         if not self.check_database_connection():
@@ -254,12 +300,15 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             cursor = self.conn.cursor()
             cursor.execute(query)
             self.conn.commit()
+            cursor.close()
             return True
         except (Exception, psycopg2.Error) as error:
-            print("Error while executing query in PostgreSQL", error)
+            print(f"Error while executing query in PostgreSQL: {error}")
+            # If there's a transaction issue, try to reconnect
+            if "current transaction is aborted" in str(error):
+                print("Transaction aborted, attempting to reconnect...")
+                self.getDatabaseConnection()
             return None
-        finally:
-            cursor.close()
 
     def format_money(self, amount, unit="gp"):
         """
