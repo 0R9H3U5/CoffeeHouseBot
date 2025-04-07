@@ -192,8 +192,9 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         db_user = self.getConfigValue("db_user")
         db_pw = self.getConfigValue("db_pw")
         db_host = self.getConfigValue("db_host")
+        db_port = self.getConfigValue("db_port")
         # self.conn = psycopg2.connect(dbname=db_name, user=db_user, password=db_pw, host=db_host, port='5432', sslmode='require')
-        self.conn = psycopg2.connect(f'postgres://{db_user}:{db_pw}@{db_host}:25640/{db_name}?sslmode=require')
+        self.conn = psycopg2.connect(f'postgres://{db_user}:{db_pw}@{db_host}:{db_port}/{db_name}?sslmode=require')
         print(f'Successful connection to database - {self.conn.get_dsn_parameters()}')
 
     def check_database_connection(self):

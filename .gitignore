@@ -137,4 +137,4 @@ dmypy.json
 # Google Sheets API credentials
 token.json
 credentials.json
-credentials.json:Zone.Identifier
+credentials.json*
