@@ -89,6 +89,9 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 print(f'Bot is in {len(self.guilds)} guilds:')
                 for g in self.guilds:
                     print(f'  - {g.name} (ID: {g.id})')
+                    print(f'Permissions:')
+                    for permission in g.me.guild_permissions:
+                        print(f'  - {permission}')
                 
                 guild = self.get_guild(guild_id)
                 if guild is None:
@@ -116,7 +119,21 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         # if message.author.bot or message.author.id in loadconfig.__blacklist__:
         #     return
         log.info(f'recieved message: {message}')
-        await self.process_commands(message)    
+        
+        # Process commands first
+        await self.process_commands(message)
+        
+        # Skip forwarding to cogs if this is a command
+        if message.content.startswith(self.command_prefix):
+            return
+            
+        # Forward non-command messages to cogs for event handling
+        for cog in self.cogs.values():
+            if hasattr(cog, 'on_message'):
+                try:
+                    await cog.on_message(message)
+                except Exception as e:
+                    log.error(f"Error in {cog.__class__.__name__}.on_message: {e}")
 
     # Use the current membership level to find when the next promotion is due
     def getNextMemLvlDate(self, mem_lvl, join_date):

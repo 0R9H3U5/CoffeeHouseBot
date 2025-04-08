@@ -35,3 +35,60 @@ There is a sample dataset in `sql/populate-test-data` which can be run to popula
 
 ## Unit Tests
 There are a set of unit tests in the `tests` directory. To run these install the pip requirements in `requirements-test.txt` and then run the command `pytest` from the root of the project
+
+## Scopes and Permissions
+### Scopes
+Currently this bot expects to be added to a sever with the `bot` and `applictions.commands` scopes
+
+### Roles
+Permissions:
+----------------------------------------------
+| Permission                         | Value |
+|-------------------------------------|-------|
+| add_reactions                      | True  |
+| attach_files                        | True  |
+| change_nickname                     | True  |
+| connect                             | True  |
+| create_expressions                  | True  |
+| create_events                       | True  |
+| create_instant_invite              | True  |
+| create_private_threads              | True  |
+| create_public_threads               | True  |
+| deafen_members                      | False |
+| embed_links                         | True  |
+| environment_stickers                | True  |
+| external_emojis                     | True  |
+| external_stickers                   | True  |
+| manage_channels                     | True  |
+| manage_expressions                  | True  |
+| manage_events                       | True  |
+| manage_guild                        | True  |
+| manage_messages                     | True  |
+| manage_nicknames                    | True  |
+| manage_roles                        | True  |
+| manage_threads                      | True  |
+| manage_webhooks                     | True  |
+| mention_everyone                    | True  |
+| move_members                        | False |
+| mute_members                        | False |
+| priority_speaker                    | False |
+| read_message_history                | True  |
+| read_messages                       | True  |
+| request_to_speak                    | True  |
+| send_messages                       | True  |
+| send_messages_in_threads            | True  |
+| send_polls                          | True  |
+| send_tts_messages                   | False |
+| send_voice_messages                 | True  |
+| speak                               | True  |
+| stream                              | True  |
+| use_application_commands            | True  |
+| use_embedded_activities             | True  |
+| use_external_apps                   | True  |
+| use_external_sounds                 | True  |
+| use_soundboard                      | True  |
+| use_voice_activation                | True  |
+| view_audit_log                      | False |
+| view_creator_monetization_analytics | False |
+| view_guild_insights                 | False |
+-----------------------------------------------
