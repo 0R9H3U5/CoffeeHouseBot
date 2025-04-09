@@ -138,3 +138,5 @@ dmypy.json
 token.json
 credentials.json
 credentials.json*
+
+.cursor
