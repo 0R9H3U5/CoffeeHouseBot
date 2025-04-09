@@ -93,10 +93,69 @@ class Applications(commands.Cog):
         log.debug("All expected questions found in message")
         return True
     
+    def _verify_binary_response(self, content, question, accepted_value_type: bool):
+        """Check if a question has a specific binary answer.
+        
+        Args:
+            content (str): The application message content
+            question (str): The question to check
+            accepted_value_type (bool): True if the answer is positive, False if it is negative
+            
+        Returns:
+            bool: True if the answer is the opposite of the accepted value type, False otherwise
+        """
+        answer = self._extract_answer(content, question)
+        print(f"Answer: {answer}")
+        if not answer:
+            return False
+        answer = answer.lower()
+        
+        valid_responses = self.bot.getConfigValue("true_values") if accepted_value_type else self.bot.getConfigValue("false_values")
+        print(f"Valid responses: {valid_responses}")
+
+        for val in valid_responses:
+            if val in answer:
+                return False
+        return True
+    
     async def _process_application(self, message):
         """Process an application message and add the user to the database."""
         try:
             log.info(f"Processing application from {message.author.name}")
+            
+            # Check for answer which invalidates application
+            rules_question = "and do you agree to abide by these rules?"
+            clan_question = "Are you currently in another clan?"
+            
+            if not self._verify_binary_response(message.content, rules_question, True):
+                log.warning(f"Application denied: User did not agree to rules")
+                embed = discord.Embed(
+                    title="Application Denied",
+                    description=f"Sorry, {message.author.mention}, your application has been denied.",
+                    color=discord.Color.red()
+                )
+                embed.add_field(
+                    name="Reason", 
+                    value="You must agree to abide by our clan rules to join. Please review our rules and apply again if you agree.",
+                    inline=False
+                )
+                await message.channel.send(embed=embed)
+                return
+                
+            if not self._verify_binary_response(message.content, clan_question, False):
+                log.warning(f"Application denied: User is in another clan")
+                embed = discord.Embed(
+                    title="Application Denied",
+                    description=f"Sorry, {message.author.mention}, your application has been denied.",
+                    color=discord.Color.red()
+                )
+                embed.add_field(
+                    name="Reason", 
+                    value="You cannot be a member of multiple clans. Please leave your current clan before applying again.",
+                    inline=False
+                )
+                await message.channel.send(embed=embed)
+                return
             
             # Extract RSN and location/timezone from the message
             rsn = self._extract_answer(message.content, "What is your RSN?")
@@ -192,9 +251,11 @@ class Applications(commands.Cog):
                     next_question_index = index
         
         # Special handling for the rules question
+        print(f"Question: {question}")
         if question == "Have you read our":
             # Find the end of the rules question
             rules_end = content.find("and do you agree to abide by these rules?")
+            print("here")
             if rules_end != -1:
                 next_question_index = rules_end
         

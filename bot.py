@@ -89,9 +89,9 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 print(f'Bot is in {len(self.guilds)} guilds:')
                 for g in self.guilds:
                     print(f'  - {g.name} (ID: {g.id})')
-                    print(f'Permissions:')
-                    for permission in g.me.guild_permissions:
-                        print(f'  - {permission}')
+                    # print(f'Permissions:')
+                    # for permission in g.me.guild_permissions:
+                    #     print(f'  - {permission}')
                 
                 guild = self.get_guild(guild_id)
                 if guild is None:
