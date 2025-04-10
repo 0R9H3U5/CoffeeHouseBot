@@ -28,6 +28,7 @@ from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
 import psycopg2
+import wom
 
 __version__ = '0.1.0'
 
@@ -70,6 +71,11 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             print(f'Synced {len(synced)} commands globally!')
         except Exception as error:
             log.error(f'Failed to sync commands: {error}')
+
+        # Initialize WOM client
+        self.wom_client = wom.Client(
+            api_base_url="https://api.wiseoldman.net/v2",
+        )
 
     async def on_ready(self):
         print(f'{self.user} has connected to Discord!')

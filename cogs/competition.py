@@ -1,6 +1,74 @@
 from discord.ext import commands
 from discord import app_commands
 import datetime
+import wom
+import traceback
+from discord.ui import Modal, TextInput
+
+class CompetitionModal(Modal, title="Add New Competition"):
+    """
+    Modal for collecting competition details
+    """
+    def __init__(self, competition_cog, comp_type, comp_values):
+        super().__init__()
+        self.competition_cog = competition_cog
+        self.comp_type = comp_type
+        
+        # Add text inputs
+        self.name_input = TextInput(
+            label="Competition Name",
+            placeholder="Enter a name for the competition",
+            required=True,
+            max_length=50
+        )
+        self.add_item(self.name_input)
+        
+        # Format the metric values for display
+        metric_values = [str(metric) for metric in comp_values]
+        metric_placeholder = ", ".join(metric_values[0:3])
+        
+        self.metric_input = TextInput(
+            label="Metric",
+            placeholder=metric_placeholder,
+            required=True,
+            max_length=50
+        )
+        self.add_item(self.metric_input)
+        
+        self.start_date_input = TextInput(
+            label="Start Date (YYYY-MM-DD HH:MM)",
+            placeholder="2023-01-01 00:00",
+            required=True,
+            max_length=16
+        )
+        self.add_item(self.start_date_input)
+        
+        self.end_date_input = TextInput(
+            label="End Date (YYYY-MM-DD HH:MM)",
+            placeholder="2023-01-07 23:59",
+            required=True,
+            max_length=16
+        )
+        self.add_item(self.end_date_input)
+        
+        self.wom_code_input = TextInput(
+            label="WOM Verification Code",
+            placeholder="Enter the Wise Old Man group verification code",
+            required=False,
+            max_length=50
+        )
+        self.add_item(self.wom_code_input)
+    
+    async def on_submit(self, interaction):
+        # Get values from inputs
+        name = self.name_input.value
+        metric = self.metric_input.value
+        start_date = self.start_date_input.value
+        end_date = self.end_date_input.value
+        wom_code = self.wom_code_input.value if self.wom_code_input.value else None
+        
+        # Call the comp_add method with the collected data
+        await self.competition_cog.comp_add(interaction, name, metric, start_date, end_date, wom_code)
 
 class Competition(commands.Cog):
     """
@@ -107,19 +175,25 @@ class Competition(commands.Cog):
         for win in wins:
             await interaction.followup.send(f" - {win[0]}")
             
-    async def comp_add(self, interaction, name: str, metric: str, start_date: str, end_date: str):
+    async def comp_add(self, interaction, name: str, metric: str, start_date: str, end_date: str, wom_code: str = None):
         """
         Add a new competition to the database
         
         Args:
-            name (str): The name of the competition
-            metric (str): The metric being measured (e.g., 'Total XP', 'Kill Count')
-            start_date (str): The start date in YYYY-MM-DD HH:MM format
-            end_date (str): The end date in YYYY-MM-DD HH:MM format
+            name(str): The name of the competition
+            metric(str): The metric being measured (e.g., 'Total XP', 'Kill Count')
+            start_date(str): The start date in YYYY-MM-DD HH:MM format
+            end_date(str): The end date in YYYY-MM-DD HH:MM format
+            wom_code(str): The Wise Old Man group verification code
         """
         await interaction.response.defer()
         
         try:
+            print(f"name: {name}")
+            print(f"metric: {metric}")
+            print(f"start_date: {start_date}")
+            print(f"end_date: {end_date}")
+            print(f"wom_code: {wom_code}")
             # Parse the dates
             start = datetime.datetime.strptime(start_date, "%Y-%m-%d %H:%M")
             end = datetime.datetime.strptime(end_date, "%Y-%m-%d %H:%M")
@@ -134,14 +208,75 @@ class Competition(commands.Cog):
                 f"VALUES ({next_id}, '{name}', '{self.comp_type}', '{metric}', '{start_date}', '{end_date}')"
             )
             
-            if success:
-                await interaction.followup.send(
-                    f"✅ Added new {self.get_comp_name()} competition:\n"
-                    f"**Name:** {name}\n"
-                    f"**Metric:** {metric}\n"
-                    f"**Start:** {start_date}\n"
-                    f"**End:** {end_date}"
-                )
+            if success:                
+                if wom_code:
+                    try:
+                        await self.bot.wom_client.start()
+                        print("1")
+                        # Use the bot's WOM client
+                        # Convert the metric string to a WOM Metric enum
+                        wom_metric = None
+                        metric_lower = metric.lower().replace(" ", "_")
+                        print(f"metric_lower: {metric_lower}")
+                        
+                        # Try to find a matching metric
+                        for metric_enum in wom.Metric:
+                            if metric_enum.value == metric_lower:
+                                wom_metric = metric_enum
+                                print(f"wom_metric: {wom_metric}")
+                                break
+                        
+                        # If no match found, try to find a partial match
+                        if wom_metric is None:
+                            for metric_enum in wom.Metric:
+                                if metric_lower in metric_enum.value or metric_enum.value in metric_lower:
+                                    wom_metric = metric_enum
+                                    print(f"wom_metric2: {wom_metric}")
+                                    break
+                        
+                        # If still no match, default to Slayer
+                        if wom_metric is None:
+                            print("\n❌ wom_metric is None\n")
+                            return
+        
+                        result = await self.bot.wom_client.competitions.create_competition(
+                            title=name,
+                            metric=wom_metric,
+                            starts_at=start,
+                            ends_at=end,
+                            group_id=self.bot.getConfigValue("wom_group_id"),
+                            group_verification_code=wom_code
+                        )
+
+                        print("2")
+                        if result.is_ok:
+                            wom_comp = result.unwrap()
+                            print(f"wom_comp: {wom_comp}")
+                            await interaction.followup.send(
+                                f"✅ Added new {self.get_comp_name()} competition:\n"
+                                f"**Name:** {name}\n"
+                                f"**Metric:** {metric}\n"
+                                f"**Start:** {start_date}\n"
+                                f"**End:** {end_date}"
+                                # f"{wom_comp}"
+                            )
+                            print("3")
+                        else:
+                            await self.bot.wom_client.close()
+                            print(f"result: {result.unwrap_err()}")
+                            print("\n❌ Failed to create WOM competition.")
+                    except Exception as e:
+                        await self.bot.wom_client.close()
+                        print(f"\n❌ Error creating WOM competition: {str(e)}\n{traceback.format_exc()}")
+                else:
+                    # Send response when there's no WOM code
+                    await interaction.followup.send(
+                        f"✅ Added new {self.get_comp_name()} competition:\n"
+                        f"**Name:** {name}\n"
+                        f"**Metric:** {metric}\n"
+                        f"**Start:** {start_date}\n"
+                        f"**End:** {end_date}"
+                    )
             else:
                 await interaction.followup.send("❌ Failed to add competition.", ephemeral=True)
                 
@@ -151,6 +286,13 @@ class Competition(commands.Cog):
                 ephemeral=True
             )
             
+    async def show_comp_add_modal(self, interaction, comp_values):
+        """
+        Show the competition add modal to the user
+        """
+        modal = CompetitionModal(self, self.comp_type, comp_values)
+        await interaction.response.send_modal(modal)
+
     async def comp_update(self, interaction, comp_id: int, winner: str, second_place: str, third_place: str):
         """
         Update a competition with the winners

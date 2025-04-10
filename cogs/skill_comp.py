@@ -2,6 +2,7 @@ from discord.ext import commands
 from discord import app_commands
 from cogs.competition import Competition
 import discord
+import wom
 
 class SkillComp(Competition):
     """
@@ -41,10 +42,20 @@ class SkillComp(Competition):
     async def skill_comp_history(self, interaction):
         await self.comp_history(interaction)
     
-    @app_commands.command(name="skill-comp-add", description="Add a new skill competition")
+    @app_commands.command(name="skill-comp-add")
+    # @app_commands.describe(
+    #     name="The name of the competition",
+    #     metric=f"Valid Values: {self.bot.wom_client.enums.Metric.Skills}",
+    #     start_date="The start date in YYYY-MM-DD HH:MM format",
+    #     end_date="The end date in YYYY-MM-DD HH:MM format",
+    #     wom_code="The Wise Old Man group verification code"
+    # )
     @app_commands.default_permissions(administrator=True)
-    async def skill_comp_add(self, interaction, name: str, metric: str, start_date: str, end_date: str):
-        await self.comp_add(interaction, name, metric, start_date, end_date)
+    async def skill_comp_add(self, interaction):
+        """
+        Add a new skill competition
+        """
+        await self.show_comp_add_modal(interaction, wom.Skills)
     
     @app_commands.command(name="skill-comp-update", description="Update skill competition results")
     @app_commands.default_permissions(administrator=True)

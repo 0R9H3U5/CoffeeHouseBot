@@ -2,6 +2,7 @@ from discord.ext import commands
 from discord import app_commands
 from cogs.competition import Competition
 import discord
+import wom
 
 class BossComp(Competition):
     """
@@ -43,8 +44,8 @@ class BossComp(Competition):
         
     @app_commands.command(name="boss-comp-add", description="Add a new boss competition")
     @app_commands.default_permissions(administrator=True)
-    async def boss_comp_add(self, interaction, name: str, metric: str, start_date: str, end_date: str):
-        await self.comp_add(interaction, name, metric, start_date, end_date)
+    async def boss_comp_add(self, interaction):        
+        await self.show_comp_add_modal(interaction, wom.Bosses)
         
     @app_commands.command(name="boss-comp-update", description="Update boss competition results")
     @app_commands.default_permissions(administrator=True)
