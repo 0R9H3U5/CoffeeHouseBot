@@ -140,3 +140,6 @@ credentials.json
 credentials.json*
 
 .cursor
+
+# IDE settings
+.idea
