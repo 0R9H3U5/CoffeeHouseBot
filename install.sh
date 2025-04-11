@@ -6,5 +6,3 @@ python3 -m venv .venv
 source $SCRIPTPATH/.venv/bin/activate
 
 pip install -r $SCRIPTPATH/requirements.txt
-
-python -m textblob.download_corpora
