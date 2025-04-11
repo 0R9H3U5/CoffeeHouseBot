@@ -302,7 +302,7 @@ async def test_comp_wins_with_wins(mock_bot, mock_interaction):
     
     # Verify that selectMany was called with the correct query
     mock_bot.selectMany.assert_called_once_with(
-        f"SELECT comp_name FROM competition WHERE winner = 1 AND competition_type = 'comp' ORDER BY comp_id DESC"
+        f"SELECT comp_name FROM competition WHERE winner = 1 AND competition_type ILIKE 'comp' ORDER BY comp_id DESC"
     )
     
     # Verify that followup.send was called with the correct messages
@@ -341,7 +341,7 @@ async def test_comp_wins_no_wins(mock_bot, mock_interaction):
     
     # Verify that selectMany was called with the correct query
     mock_bot.selectMany.assert_called_once_with(
-        f"SELECT comp_name FROM competition WHERE winner = 1 AND competition_type = 'comp' ORDER BY comp_id DESC"
+        f"SELECT comp_name FROM competition WHERE winner = 1 AND competition_type ILIKE 'comp' ORDER BY comp_id DESC"
     )
     
     # Verify that followup.send was called with the correct message

@@ -6,7 +6,7 @@ DROP TABLE IF EXISTS member;
 
 CREATE TABLE member
 ( _id SERIAL PRIMARY KEY,
-  rsn varchar(12) NOT NULL,
+  rsn varchar(12) NOT NULL UNIQUE,
   discord_id_num bigint UNIQUE,
   discord_id varchar(37),
   membership_level integer CHECK (membership_level >= 0 AND membership_level <= 8),
@@ -20,9 +20,13 @@ CREATE TABLE member
   skill_comp_pts_life integer,
   boss_comp_pts integer,
   boss_comp_pts_life integer,
-  loc varchar(10),
+  loc varchar(256),
   timezone varchar(10),
-  notes varchar(512)
+  notes varchar(512),
+  how_found_clan varchar(256),
+  favorite_activities varchar(256),
+  play_frequency varchar(256),
+  coffee_preference varchar(256)
 );
 
 CREATE TABLE competition
@@ -57,7 +61,7 @@ CREATE TABLE lottery
     end_date timestamp NOT NULL,
     entry_fee integer NOT NULL CHECK (entry_fee >= 0),
     max_entries integer NOT NULL CHECK (max_entries > 0),
-    winner_id integer,
+    winner_id bigint,
     CONSTRAINT fk_winner_id
         FOREIGN KEY(winner_id)
         REFERENCES member(_id)
@@ -66,7 +70,7 @@ CREATE TABLE lottery
 CREATE TABLE lottery_entries
 (
     lottery_id integer,
-    member_id integer,
+    member_id bigint,
     entries_purchased integer NOT NULL CHECK (entries_purchased > 0),
     PRIMARY KEY (lottery_id, member_id),
     CONSTRAINT fk_lottery_id
