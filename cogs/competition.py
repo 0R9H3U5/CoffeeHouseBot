@@ -314,7 +314,7 @@ class Competition(commands.Cog):
             await interaction.followup.send(f"❌ Competition with ID {comp_id} not found.", ephemeral=True)
             return
             
-        if comp[1] != self.comp_type:
+        if comp[1].lower() != self.comp_type.lower():
             await interaction.followup.send(
                 f"❌ Competition {comp_id} is not a {self.get_comp_name()} competition.",
                 ephemeral=True
