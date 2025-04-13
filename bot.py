@@ -273,11 +273,19 @@ class CoffeeHouseBot(commands.AutoShardedBot):
         except (psycopg2.OperationalError, psycopg2.InterfaceError) as e:
             # Connection is not active, attempt to reconnect
             print(f"Database connection issue detected: {e}")
-            return self.getDatabaseConnection()
+            try:
+                return self.getDatabaseConnection()
+            except Exception as reconnect_error:
+                print(f"Failed to reconnect to database: {reconnect_error}")
+                return False
         except Exception as e:
             print(f"Error checking database connection: {e}")
             # Try to reconnect as a fallback
-            return self.getDatabaseConnection()
+            try:
+                return self.getDatabaseConnection()
+            except Exception as reconnect_error:
+                print(f"Failed to reconnect to database: {reconnect_error}")
+                return False
 
     def selectMany(self, query):
         if not self.check_database_connection():
@@ -290,6 +298,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             cursor.close()
             return result
         except (Exception, psycopg2.Error) as error:
+            cursor.close()
             print(f"Error while fetching data from PostgreSQL: {error}")
             # If there's a transaction issue, try to reconnect
             if "current transaction is aborted" in str(error):
@@ -308,6 +317,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             cursor.close()
             return result
         except (Exception, psycopg2.Error) as error:
+            cursor.close()
             print(f"Error while fetching data from PostgreSQL: {error}")
             # If there's a transaction issue, try to reconnect
             if "current transaction is aborted" in str(error):
@@ -326,6 +336,7 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             cursor.close()
             return True
         except (Exception, psycopg2.Error) as error:
+            cursor.close()
             print(f"Error while executing query in PostgreSQL: {error}")
             # If there's a transaction issue, try to reconnect
             if "current transaction is aborted" in str(error):

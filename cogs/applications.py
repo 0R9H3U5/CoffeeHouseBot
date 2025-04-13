@@ -327,11 +327,6 @@ class Applications(commands.Cog):
                             
                             # Send the embed as a public message (not ephemeral)
                             await interaction.followup.send(embed=embed, ephemeral=False)
-                            # await interaction.response.send_message(embed=embed, ephemeral=False)
-                            
-                            # Also send a private confirmation to the admin who accepted the application
-                            # await interaction.followup.send(f"You have successfully accepted {rsn}'s application.", ephemeral=False)
-                            
                             log.info(f"Application from {rsn} fully processed")
                         else:
                             log.error(f"Trial Member role not found (ID: {self.trial_member_role_id})")

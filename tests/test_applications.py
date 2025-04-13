@@ -53,6 +53,16 @@ def mock_member():
     member.add_roles = AsyncMock()  # Use AsyncMock for async methods
     return member
 
+@pytest.fixture
+def mock_interaction():
+    """Create a mock Discord interaction for testing."""
+    interaction = MagicMock(spec=discord.Interaction)
+    interaction.response = MagicMock()
+    interaction.response.defer = AsyncMock()
+    interaction.followup = MagicMock()
+    interaction.followup.send = AsyncMock()
+    return interaction
+
 def test_is_application_message(applications_cog):
     """Test that the _is_application_message method correctly identifies application messages."""
     # Valid application message
@@ -106,7 +116,7 @@ def test_extract_answer(applications_cog):
     assert nonexistent is None
 
 @pytest.mark.asyncio
-async def test_process_application_success(applications_cog, mock_message, mock_guild, mock_member):
+async def test_process_application_success(applications_cog, mock_message, mock_guild, mock_member, mock_interaction):
     """Test successful application processing."""
     # Set up mocks
     applications_cog.bot.execute_query = MagicMock(return_value=True)
@@ -118,18 +128,19 @@ async def test_process_application_success(applications_cog, mock_message, mock_
     mock_role.name = "Trial Member"
     mock_guild.get_role.return_value = mock_role
     
-    # Mock the channel.send method to return a coroutine
-    mock_message.channel.send = AsyncMock()
+    # Mock the selectOne to return None (user not found)
+    applications_cog.bot.selectOne = MagicMock(return_value=None)
     
     # Process the application
-    await applications_cog._process_application(mock_message)
+    await applications_cog._process_application(mock_message, mock_interaction)
     
     # Verify database query was executed with correct parameters
     applications_cog.bot.execute_query.assert_called_once()
     query = applications_cog.bot.execute_query.call_args[0][0]
     assert "INSERT INTO member" in query
-    assert "TestUser123" in query
-    assert "USA, EST" in query
+    assert "TestUser123" in query  # RSN
+    assert "USA" in query  # Location
+    assert "EST" in query  # Timezone
     assert "123456789" in query  # Discord ID
     assert "membership_level" in query
     assert "0" in query  # Membership level
@@ -145,35 +156,40 @@ async def test_process_application_success(applications_cog, mock_message, mock_
     assert "0" in query
     assert "boss_comp_pts_life" in query
     assert "0" in query
+    assert "Through a friend" in query  # How found clan
+    assert "Skilling and PvM" in query  # Favorite activities
+    assert "Daily" in query  # Play frequency
+    assert "Black" in query  # Coffee preference
     
     # Verify role was added
     mock_member.add_roles.assert_called_once_with(mock_role)
     
     # Verify confirmation message was sent
-    mock_message.channel.send.assert_called_once()
-    call_args = mock_message.channel.send.call_args[1]  # Use kwargs instead of args
+    mock_interaction.followup.send.assert_called_once()
+    call_args = mock_interaction.followup.send.call_args[1]  # Use kwargs instead of args
     assert "embed" in call_args
     embed = call_args["embed"]
     assert embed.title == "Application Accepted!"
     assert "TestUser123" in embed.description
 
 @pytest.mark.asyncio
-async def test_process_application_db_error(applications_cog, mock_message):
+async def test_process_application_db_error(applications_cog, mock_message, mock_interaction):
     """Test application processing when database query fails."""
     # Set up mocks
     applications_cog.bot.execute_query = MagicMock(return_value=False)
+    applications_cog.bot.selectOne = MagicMock(return_value=None)  # User not found
     
     # Process the application
-    await applications_cog._process_application(mock_message)
+    await applications_cog._process_application(mock_message, mock_interaction)
     
     # Verify error message was sent
-    mock_message.channel.send.assert_called_once()
-    call_args = mock_message.channel.send.call_args[0]
+    mock_interaction.followup.send.assert_called_once()
+    call_args = mock_interaction.followup.send.call_args[0]
     assert "error" in call_args[0].lower()
     assert "contact an admin" in call_args[0].lower()
 
 @pytest.mark.asyncio
-async def test_process_application_missing_rsn(applications_cog, mock_message):
+async def test_process_application_missing_rsn(applications_cog, mock_message, mock_interaction):
     """Test application processing when RSN is missing."""
     # Modify message to remove RSN
     mock_message.content = """
@@ -188,12 +204,29 @@ async def test_process_application_missing_rsn(applications_cog, mock_message):
     """
     
     # Process the application
-    await applications_cog._process_application(mock_message)
+    await applications_cog._process_application(mock_message, mock_interaction)
     
     # Verify error message was sent
-    mock_message.channel.send.assert_called_once()
-    call_args = mock_message.channel.send.call_args[0]
-    assert "couldn't find your rsn" in call_args[0].lower()
+    mock_interaction.followup.send.assert_called_once()
+    call_args = mock_interaction.followup.send.call_args[0]
+    assert "i couldn't find the rsn in the application" in call_args[0].lower()
+    
+    # Verify database query was not executed
+    applications_cog.bot.execute_query.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_process_application_duplicate_user(applications_cog, mock_message, mock_interaction):
+    """Test application processing when user is already registered."""
+    # Set up mocks
+    applications_cog.bot.selectOne = MagicMock(return_value=("TestUser123", 123456789))  # User already exists
+    
+    # Process the application
+    await applications_cog._process_application(mock_message, mock_interaction)
+    
+    # Verify error message was sent
+    mock_interaction.followup.send.assert_called_once()
+    call_args = mock_interaction.followup.send.call_args[0]
+    assert "both rsn 'testuser123' and discord id 123456789 are already registered in the clan" in call_args[0].lower()
     
     # Verify database query was not executed
     applications_cog.bot.execute_query.assert_not_called() 
