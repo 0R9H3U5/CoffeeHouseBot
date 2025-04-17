@@ -77,6 +77,18 @@ class CoffeeHouseBot(commands.AutoShardedBot):
             api_base_url="https://api.wiseoldman.net/v2",
         )
 
+    async def close(self):
+        """Cleanup when the bot shuts down"""
+        # Close the WOM client if it exists
+        if hasattr(self, 'wom_client') and self.wom_client:
+            try:
+                await self.wom_client.close()
+            except Exception as e:
+                log.error(f'Error closing WOM client: {e}')
+        
+        # Call the parent class's close method
+        await super().close()
+
     async def on_ready(self):
         print(f'{self.user} has connected to Discord!')
         log.info('Logged in as')

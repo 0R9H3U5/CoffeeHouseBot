@@ -171,7 +171,7 @@ class Competition(commands.Cog):
         """
         Get the human-readable name for the given competition type
         """
-        return f"{comp_type.value} week"
+        return f"{comp_type.value.title()} Week"
     
     @app_commands.command(name="comp-points", description="Fetch the competition points for the user")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
@@ -400,8 +400,16 @@ class Competition(commands.Cog):
         await interaction.response.defer()
         
         try:
-            # Start the WOM client
-            await self.bot.wom_client.start()
+            # Check if WOM client exists and is closed, if so reestablish it
+            if not hasattr(self.bot, 'wom_client') or not self.bot.wom_client:
+                await self.bot.wom_client.start()
+            else:
+                try:
+                    # Try a simple operation to check if session is alive
+                    await self.bot.wom_client.groups.get_details(self.bot.getConfigValue("wom_group_id"))
+                except:
+                    # If the operation fails, the session is likely closed, so restart it
+                    await self.bot.wom_client.start()
             
             # Get the group ID
             group_id = self.bot.getConfigValue("wom_group_id")
@@ -411,7 +419,6 @@ class Competition(commands.Cog):
             # Get active competitions for the group
             result = await self.bot.wom_client.groups.get_competitions(group_id)
             if not result.is_ok:
-                await self.bot.wom_client.close()
                 await interaction.followup.send("❌ Failed to fetch competitions from WOM.", ephemeral=True)
                 return
             
@@ -427,7 +434,6 @@ class Competition(commands.Cog):
             print(f"active competition: {active_competition}")
             
             if not active_competition:
-                await self.bot.wom_client.close()
                 embed = discord.Embed(
                     title="No Active Competition",
                     description="*There is currently no active competition.*\n\n"
@@ -445,7 +451,6 @@ class Competition(commands.Cog):
             print(f"participants result: {participants_result}")
 
             if not participants_result.is_ok:
-                await self.bot.wom_client.close()
                 await interaction.followup.send("❌ Failed to fetch competition participants.", ephemeral=True)
                 return
             
@@ -483,12 +488,50 @@ class Competition(commands.Cog):
                      f"Ends: {active_competition.ends_at.strftime('%Y-%m-%d %H:%M UTC')}"
             )
             
-            await self.bot.wom_client.close()
             await interaction.followup.send(embed=embed)
             
         except Exception as e:
-            await self.bot.wom_client.close()
             await interaction.followup.send(f"❌ Error checking competition status: {str(e)}", ephemeral=True)
+
+    @app_commands.command(name="get-recent-comp-metrics", description="Show the metrics of recent competitions")
+    @app_commands.describe(comp_type="The type of competition (skill or boss)")
+    async def get_recent_comp_metrics(self, interaction, comp_type: CompetitionType):
+        """
+        Show the metrics of recent competitions for the given type
+        """
+        await interaction.response.defer()
+        
+        # Set the limit based on competition type
+        limit = 5 if comp_type == CompetitionType.SKILL else 3
+        
+        # Get the recent competitions with their metrics
+        competitions = self.bot.selectMany(
+            f"SELECT comp_name, metric, end_date FROM competition "
+            f"WHERE comp_type = '{comp_type.value}' "
+            f"ORDER BY comp_id DESC LIMIT {limit}"
+        )
+        
+        if not competitions:
+            await interaction.followup.send(f"No {self.get_comp_name(comp_type)} competitions have been recorded yet.")
+            return
+            
+        # Create an embed to display the metrics
+        embed = discord.Embed(
+            title=f"{self.get_comp_name(comp_type)} Competition Metrics on Cooldown",
+            color=discord.Color.gold()
+        )
+        
+        # Add each competition's metric to the embed
+        for comp_name, metric, end_date in competitions:
+            # Format the date in dd-mm-yyyy notation in UTC
+            formatted_date = end_date.strftime("%d-%m-%Y") if end_date else "Unknown"
+            embed.add_field(
+                name=f"{comp_name} [{formatted_date}]",
+                value=f"**Metric:** {metric}",
+                inline=False
+            )
+            
+        await interaction.followup.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Competition(bot)) 
