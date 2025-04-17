@@ -13,8 +13,9 @@ https://about.abstractumbra.dev/discord.py/2023/01/29/sync-command-example.html
 """
 import os
 import discord
+import json
 
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 from discord.ext import commands
 
 class Cogsmanager(commands.Cog, name="cogsmanager"):
@@ -33,7 +34,28 @@ class Cogsmanager(commands.Cog, name="cogsmanager"):
     """
     def __init__(self, bot):
         self.bot = bot
+        self.config = self.load_config()
 
+    def load_config(self) -> dict:
+        """Load the config.json file."""
+        with open('config.json', 'r') as f:
+            return json.load(f)
+
+    def get_cog_list(self, cog_name: str) -> List[str]:
+        """
+        Process the cog_name parameter and return a list of cogs to operate on.
+        
+        Args:
+            cog_name (str): The name of the cog or "all" for all cogs
+            
+        Returns:
+            List[str]: List of cog names to operate on
+        """
+        if cog_name.lower() == "all":
+            # Get all cogs from config, excluding cogsmanager
+            return [cog.replace("cogs.", "") for cog in self.config["cogs"] 
+                   if cog != "cogs.cogsmanager"]
+        return [cog_name]
 
     @commands.command()
     @commands.is_owner()
@@ -43,20 +65,22 @@ class Cogsmanager(commands.Cog, name="cogsmanager"):
 
         Args:
             ctx as commands.Context
-            cog_name (str): The name of the cog to load.
+            cog_name (str): The name of the cog to load or "all" for all cogs.
 
         Raises:
             commands.ExtensionFailed: If loading the cog fails.
         """
-        if cog_name != "cogsmanager":
+        cogs_to_load = self.get_cog_list(cog_name)
+        results = []
+        
+        for cog in cogs_to_load:
             try:
-                await self.bot.load_extension(f"cogs.{cog_name}")
-                await ctx.send(f"{cog_name} cog has been loaded.")
+                await self.bot.load_extension(f"cogs.{cog}")
+                results.append(f"✅ {cog} cog has been loaded.")
             except commands.ExtensionFailed as extension_failed:
-                await ctx.send(f"Error loading {cog_name} cog: {extension_failed}")
-        else:
-            await ctx.send("cogsmanager is already loaded, obviously.")
-
+                results.append(f"❌ Error loading {cog} cog: {extension_failed}")
+        
+        await ctx.send("\n".join(results))
 
     @commands.command()
     @commands.is_owner()
@@ -66,21 +90,23 @@ class Cogsmanager(commands.Cog, name="cogsmanager"):
 
         Args:
             ctx as commands.Context
-            cog_name (str): The name of the cog to unload.
+            cog_name (str): The name of the cog to unload or "all" for all cogs.
 
         Raises:
             commands.ExtensionNotLoaded: If the specified cog is not loaded.
             commands.ExtensionFailed: If unloading the cog fails.
         """
-        if cog_name != "cogsmanager":
+        cogs_to_unload = self.get_cog_list(cog_name)
+        results = []
+        
+        for cog in cogs_to_unload:
             try:
-                await self.bot.unload_extension(f"cogs.{cog_name}")
-                await ctx.send(f"{cog_name} cog has been unloaded.")
+                await self.bot.unload_extension(f"cogs.{cog}")
+                results.append(f"✅ {cog} cog has been unloaded.")
             except commands.ExtensionFailed as extension_failed:
-                await ctx.send(f"Error unloading {cog_name} cog: {extension_failed}")
-        else:
-            await ctx.send("I can't unload the cogsmanager.")
-
+                results.append(f"❌ Error unloading {cog} cog: {extension_failed}")
+        
+        await ctx.send("\n".join(results))
 
     @commands.command()
     @commands.is_owner()
@@ -90,22 +116,24 @@ class Cogsmanager(commands.Cog, name="cogsmanager"):
 
         Args:
             ctx as commands.Context
-            cog_name (str): The name of the cog to unload.
+            cog_name (str): The name of the cog to reload or "all" for all cogs.
 
         Raises:
             commands.ExtensionNotLoaded: If the specified cog is not loaded.
             commands.ExtensionFailed: If reloading the cog fails.
         """
-        if cog_name != "cogsmanager":
+        cogs_to_reload = self.get_cog_list(cog_name)
+        results = []
+        
+        for cog in cogs_to_reload:
             try:
-                await self.bot.unload_extension(f"cogs.{cog_name}")
-                await self.bot.load_extension(f"cogs.{cog_name}")
-                await ctx.send(f"{cog_name} cog has been reloaded.")
+                await self.bot.unload_extension(f"cogs.{cog}")
+                await self.bot.load_extension(f"cogs.{cog}")
+                results.append(f"✅ {cog} cog has been reloaded.")
             except commands.ExtensionFailed as extension_failed:
-                await ctx.send(f"Error reloading {cog_name} cog: {extension_failed}")
-        else:
-            await ctx.send("I can't reload the cogsmanager.")
-
+                results.append(f"❌ Error reloading {cog} cog: {extension_failed}")
+        
+        await ctx.send("\n".join(results))
 
     @commands.command()
     @commands.is_owner()
@@ -124,7 +152,7 @@ class Cogsmanager(commands.Cog, name="cogsmanager"):
                 This takes all global commands within the CommandTree
                 and sends them to Discord. (see CommandTree for more info.)
             !sync ~
-                This will sync all guild commands for the current context’s guild.
+                This will sync all guild commands for the current context's guild.
             !sync *
                 This command copies all global commands to the current
                 guild (within the CommandTree) and syncs.
