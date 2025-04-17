@@ -1,5 +1,8 @@
 from discord.ext import commands
 from discord import app_commands
+from discord import File
+from PIL import Image, ImageDraw, ImageFont
+import io
 
 class UserLookup(commands.Cog):
     """
@@ -126,6 +129,29 @@ class UserLookup(commands.Cog):
             # Send the complete output
             await interaction.followup.send(f'```\n{formatted_output}```')
             
+    @app_commands.command(name="yellowpages_test", description="Print a directory of RSNs and Discord IDs as an image")
+    async def yellowpages_test(self, interaction):
+        await interaction.response.defer()
+        
+        print("yellowpages_test")
+        all_members = self.bot.selectMany("SELECT rsn, discord_id FROM member ORDER BY rsn")
+        
+        # Check if we have any members
+        if not all_members:
+            await interaction.followup.send("No members found in the database.")
+            return
+            
+        # Create an image with the member list
+        image = self.create_yellowpages_image(all_members)
+        
+        # Convert the image to bytes
+        img_byte_arr = io.BytesIO()
+        image.save(img_byte_arr, format='PNG')
+        img_byte_arr.seek(0)
+        
+        # Send the image
+        await interaction.followup.send(file=File(img_byte_arr, filename='yellowpages.png'))
+
     def format_user_list(self, list):
         if not list:
             return "No members found."
@@ -309,6 +335,49 @@ class UserLookup(commands.Cog):
             chunks.append(current_chunk)
         
         return chunks
+
+    def create_yellowpages_image(self, members):
+        # Define image dimensions and padding
+        padding = 20
+        line_height = 30
+        font_size = 20
+        
+        # Calculate image dimensions
+        width = 800
+        height = padding * 2 + (len(members) + 1) * line_height  # +1 for header
+        
+        # Create a new image with white background
+        image = Image.new('RGB', (width, height), 'white')
+        draw = ImageDraw.Draw(image)
+        
+        # Load font
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except IOError:
+            font = ImageFont.load_default()
+        
+        # Draw header
+        header_text = "RSN Directory"
+        header_width = draw.textlength(header_text, font=font)
+        draw.text(((width - header_width) // 2, padding), header_text, font=font, fill='black')
+        
+        # Draw column headers
+        draw.text((padding, padding + line_height), "RSN", font=font, fill='black')
+        draw.text((width // 2, padding + line_height), "Discord ID", font=font, fill='black')
+        
+        # Draw separator line
+        draw.line([(padding, padding + line_height + 5), (width - padding, padding + line_height + 5)], fill='black')
+        
+        # Draw member entries
+        for i, member in enumerate(members):
+            y = padding + (i + 2) * line_height
+            rsn = member[0]
+            discord_id = member[1] or "Not linked"
+            
+            draw.text((padding, y), rsn, font=font, fill='black')
+            draw.text((width // 2, y), str(discord_id), font=font, fill='black')
+        
+        return image
 
 async def setup(bot):
     await bot.add_cog(UserLookup(bot))
