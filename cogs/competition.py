@@ -6,7 +6,10 @@ import traceback
 from discord.ui import Modal, TextInput
 from enum import Enum
 import discord
-from typing import Optional
+from typing import Optional, Union, Literal, List, Any
+import logging
+
+log = logging.getLogger('discord')
 
 class CompetitionType(Enum):
     SKILL = "skill"
@@ -155,6 +158,15 @@ class Competition(commands.Cog):
         self.bot = bot
         super().__init__()
     
+    async def check_events_category(self, interaction: discord.Interaction) -> bool:
+        """
+        Check if the command is being used in a channel within the EVENTS & COMPETITIONS category
+        """
+        return await self.bot.get_cog("InterCogs").check_category(
+            interaction,
+            "EVENTS & COMPETITIONS"
+        )
+    
     def get_points_column(self, comp_type: CompetitionType):
         """
         Get the points column name for the given competition type
@@ -176,6 +188,8 @@ class Competition(commands.Cog):
     @app_commands.command(name="comp-points", description="Fetch the competition points for the user")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
     async def comp_points(self, interaction, comp_type: CompetitionType):
+        if not await self.check_events_category(interaction):
+            return
         await interaction.response.defer()
         
         points_column = self.get_points_column(comp_type)
@@ -188,6 +202,8 @@ class Competition(commands.Cog):
     @app_commands.command(name="comp-leaderboard", description="Show the competition points leaderboard")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
     async def comp_leaderboard(self, interaction, comp_type: CompetitionType):
+        if not await self.check_events_category(interaction):
+            return
         await interaction.response.defer()
         
         points_column = self.get_points_column(comp_type)
@@ -241,6 +257,8 @@ class Competition(commands.Cog):
     @app_commands.command(name="comp-wins", description="Fetch the competition wins for the user")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
     async def comp_wins(self, interaction, comp_type: CompetitionType):
+        if not await self.check_events_category(interaction):
+            return
         await interaction.response.defer()
         
         # Get the user's _id from the member table
@@ -266,6 +284,8 @@ class Competition(commands.Cog):
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
     @app_commands.default_permissions(administrator=True)
     async def comp_add(self, interaction, comp_type: CompetitionType):
+        if not await self.check_events_category(interaction):
+            return
         """
         Add a new competition to the database
         """
@@ -289,77 +309,69 @@ class Competition(commands.Cog):
     )
     @app_commands.default_permissions(administrator=True)
     async def comp_update(self, interaction, comp_type: CompetitionType, comp_id: int, winner: str, second_place: str, third_place: str):
+        if not await self.check_events_category(interaction):
+            return
+            
         """
         Update a competition with the winners
         """
         await interaction.response.defer()
         
-        # Get the competition details
-        comp = self.bot.selectOne(
-            f"SELECT comp_name, comp_type FROM competition WHERE comp_id = {comp_id}"
-        )
-        
-        if comp is None:
-            await interaction.followup.send(f"❌ Competition with ID {comp_id} not found.", ephemeral=True)
-            return
-            
-        if comp[1].lower() != comp_type.value.lower():
-            await interaction.followup.send(
-                f"❌ Competition {comp_id} is not a {self.get_comp_name(comp_type)} competition.",
-                ephemeral=True
-            )
-            return
-            
-        # Get the member IDs for the winners
-        winner_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{winner}'")
-        second_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{second_place}'")
-        third_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{third_place}'")
-        
-        if not all([winner_id, second_id, third_id]):
-            await interaction.followup.send(
-                "❌ One or more winners not found in the database. Please check the RSNs.",
-                ephemeral=True
-            )
-            return
-            
-        # Update the competition with the winners
-        success = self.bot.execute_query(
-            f"UPDATE competition SET winner = {winner_id[0]}, second_place = {second_id[0]}, third_place = {third_id[0]} "
-            f"WHERE comp_id = {comp_id}"
-        )
-        
-        if success:
-            # Update points for all winners
-            points_column = self.get_points_column(comp_type)
-            points_life_column = self.get_points_life_column(comp_type)
-            
-            self.bot.execute_query(
-                f"UPDATE member SET {points_column} = {points_column} + 3, "
-                f"{points_life_column} = {points_life_column} + 3 "
-                f"WHERE _id = {winner_id[0]}"
+        try:
+            # Get the competition details
+            comp = self.bot.selectOne(
+                f"SELECT comp_name, comp_type FROM competition WHERE comp_id = {comp_id}"
             )
             
-            self.bot.execute_query(
-                f"UPDATE member SET {points_column} = {points_column} + 2, "
-                f"{points_life_column} = {points_life_column} + 2 "
-                f"WHERE _id = {second_id[0]}"
-            )
+            if comp is None:
+                await interaction.followup.send(f"❌ Competition with ID {comp_id} not found.", ephemeral=True)
+                return
+                
+            if comp[1].lower() != comp_type.value.lower():
+                await interaction.followup.send(
+                    f"❌ Competition {comp_id} is not a {self.get_comp_name(comp_type)} competition.",
+                    ephemeral=True
+                )
+                return
+                
+            # Get the member IDs for the winners
+            winner_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{winner}'")
+            second_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{second_place}'")
+            third_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{third_place}'")
             
-            self.bot.execute_query(
-                f"UPDATE member SET {points_column} = {points_column} + 1, "
-                f"{points_life_column} = {points_life_column} + 1 "
-                f"WHERE _id = {third_id[0]}"
-            )
+            if not winner_id or not second_id or not third_id:
+                await interaction.followup.send(
+                    "❌ One or more of the specified RSNs could not be found in the database.",
+                    ephemeral=True
+                )
+                return
+                
+            # Update the competition with the winners
+            query = f"""
+                UPDATE competition 
+                SET winner_id = {winner_id[0]}, 
+                    second_place_id = {second_id[0]}, 
+                    third_place_id = {third_id[0]},
+                    updated_at = NOW()
+                WHERE comp_id = {comp_id}
+            """
             
-            await interaction.followup.send(
-                f"✅ Updated competition results for **{comp[0]}**:\n"
-                f"🥇 **Winner:** {winner} (+3 points)\n"
-                f"🥈 **Second Place:** {second_place} (+2 points)\n"
-                f"🥉 **Third Place:** {third_place} (+1 point)"
-            )
-        else:
-            await interaction.followup.send("❌ Failed to update competition results.", ephemeral=True)
-            
+            if self.bot.execute_query(query):
+                await interaction.followup.send(
+                    f"✅ Successfully updated {comp[0]} with winners:\n"
+                    f"1st: {winner}\n"
+                    f"2nd: {second_place}\n"
+                    f"3rd: {third_place}"
+                )
+            else:
+                await interaction.followup.send(
+                    "❌ Failed to update the competition. Please check the logs for more information.",
+                    ephemeral=True
+                )
+                
+        except Exception as e:
+            await self.bot.get_cog("InterCogs").handle_error(interaction, e)
+
     def get_competitions(self, comp_type: CompetitionType, limit=10):
         """
         Get the most recent competitions
@@ -374,6 +386,8 @@ class Competition(commands.Cog):
     @app_commands.command(name="comp-history", description="Show the recent competition history")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
     async def comp_history(self, interaction, comp_type: CompetitionType):
+        if not await self.check_events_category(interaction):
+            return
         await interaction.response.defer()
         
         competitions = self.get_competitions(comp_type)
@@ -394,6 +408,8 @@ class Competition(commands.Cog):
 
     @app_commands.command(name="comp-status", description="Check the status of the current competition")
     async def comp_status(self, interaction):
+        if not await self.check_events_category(interaction):
+            return
         """
         Check the status of the current competition, including top 5 competitors and time remaining
         """
@@ -496,6 +512,8 @@ class Competition(commands.Cog):
     @app_commands.command(name="get-recent-comp-metrics", description="Show the metrics of recent competitions")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
     async def get_recent_comp_metrics(self, interaction, comp_type: CompetitionType):
+        if not await self.check_events_category(interaction):
+            return
         """
         Show the metrics of recent competitions for the given type
         """

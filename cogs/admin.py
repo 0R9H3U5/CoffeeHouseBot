@@ -12,146 +12,32 @@ class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
+    async def check_leaders_category(self, interaction: discord.Interaction) -> bool:
+        """
+        Check if the command is being used in a channel within the LEADERS category
+        """
+        return await self.bot.get_cog("InterCogs").check_category(
+            interaction,
+            "LEADERS"
+        )
+
     @app_commands.command(name="shutdown", description="Shutdown the bot (admin only)")
     async def shutdown(self, interaction):
+        if not await self.check_leaders_category(interaction):
+            return
+            
         # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        if not await self.bot.get_cog("InterCogs").check_permissions(
+            interaction,
+            required_permissions=['administrator']
+        ):
             return
             
         await interaction.response.send_message('**Shutting Down...**')
         self.bot.conn.close()
         await self.bot.close()
         sys.exit(0)
-
-    @app_commands.command(name="view-member", description="View member info by RSN (admin only)")
-    async def view_member(self, interaction, user_rsn: str):
-        # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-            return
-            
-        await interaction.response.defer()
         
-        # Get column names from the database
-        columns = self.bot.selectMany("SELECT column_name FROM information_schema.columns WHERE table_name = 'member' ORDER BY ordinal_position")
-        column_names = [col[0] for col in columns]
-        
-        # Query the member data
-        user_data = self.bot.selectOne(f"SELECT * FROM member WHERE rsn ILIKE '{user_rsn}' OR '{user_rsn}' ILIKE ANY (alt_rsn);")
-        if user_data is None:
-            await interaction.followup.send(f'No members found with rsn or alt of {user_rsn}')
-            return
-            
-        # Create a dictionary mapping column names to values
-        user = dict(zip(column_names, user_data))
-        print(f"user: {user}")
-        # Create an embed for the member information
-        embed = discord.Embed(
-            title=f"Member Information: {user['rsn']}",
-            color=discord.Color.blue(),
-            timestamp=datetime.datetime.now()
-        )
-        
-        # Add member details to the embed
-        embed.add_field(name="RSN", value=user['rsn'], inline=True)
-        embed.add_field(name="Discord ID", value=user['discord_id'] or "Not linked", inline=True)
-        
-        # Get membership level name
-        try:
-            membership_level = self.bot.getConfigValue("mem_level_names")[int(user['membership_level'])]
-        except (IndexError, TypeError, ValueError):
-            membership_level = "Unknown"
-            
-        embed.add_field(name="Membership Level", value=membership_level, inline=True)
-        
-        # Get next promotion date
-        next_promotion = self.bot.getNextMemLvlDate(user['membership_level'], user['join_date'])
-        if next_promotion:
-            next_promotion_str = next_promotion.strftime("%d/%m/%Y")
-        else:
-            next_promotion_str = "No upcoming promotion"
-            
-        embed.add_field(name="Next Promotion Date", value=next_promotion_str, inline=True)
-        
-        # Calculate total competition points (skill + boss)
-        skill_comp_pts = user['skill_comp_pts'] or 0
-        boss_comp_pts = user['boss_comp_pts'] or 0
-        total_comp_pts = skill_comp_pts + boss_comp_pts
-        embed.add_field(name="Competition Points", value=str(total_comp_pts), inline=True)
-        
-        # Format boolean values
-        on_leave = "Yes" if user['on_leave'] else "No"
-        active = "Yes" if user['active'] else "No"
-        
-        embed.add_field(name="On Leave", value=on_leave, inline=True)
-        embed.add_field(name="Active", value=active, inline=True)
-        
-        # Format arrays
-        alt_rsn = user['alt_rsn']
-        if alt_rsn and isinstance(alt_rsn, (list, tuple)) and len(alt_rsn) > 0:
-            alt_rsn_str = ", ".join(alt_rsn)
-        else:
-            alt_rsn_str = "None"
-            
-        prev_rsn = user['previous_rsn']
-        if prev_rsn and isinstance(prev_rsn, (list, tuple)) and len(prev_rsn) > 0:
-            prev_rsn_str = ", ".join(prev_rsn)
-        else:
-            prev_rsn_str = "None"
-            
-        embed.add_field(name="Alt RSNs", value=alt_rsn_str, inline=False)
-        embed.add_field(name="Previous RSNs", value=prev_rsn_str, inline=False)
-        
-        # Add notes if available
-        if user['notes']:
-            embed.add_field(name="Other Notes", value=user['notes'], inline=False)
-            
-        # Set footer with timestamp
-        embed.set_footer(text=f"Requested by {interaction.user.name}", icon_url=interaction.user.display_avatar.url)
-        
-        await interaction.followup.send(embed=embed)
-
-    @app_commands.command(name="update-member", description="Update an existing member (admin only)")
-    async def update_member(self, interaction, user_rsn: str, update_key: str, update_value: str):
-        # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-            return
-            
-        await interaction.response.defer()
-        
-        # Only allow updates on certain keys, this prevents new keys from being added
-        print(f'Updating user {user_rsn}. Key {update_key} will be set to value {update_value}.')
-        if update_key == "join_date":
-            update_value = datetime.datetime.strptime(update_value, self.bot.getConfigValue("datetime_fmt"))
-        self.bot.execute_query(f"UPDATE member SET {update_key}={update_value} WHERE rsn ILIKE '{user_rsn}'")
-        await interaction.followup.send(f'Updated user {user_rsn}. Key {update_key} set to value {update_value}.')
-
-    @app_commands.command(name="set-active", description="Mark a member as active or inactive (admin only)")
-    async def set_active(self, interaction, user_rsn: str, is_active: bool):
-        # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-            return
-            
-        await interaction.response.defer()
-        
-        await self.update_member(interaction, user_rsn, "active", is_active)
-        await interaction.followup.send(f'{user_rsn} inactive flag set to {is_active}')
-
-    @app_commands.command(name="set-onleave", description="Mark a member as on leave or returned (admin only)")
-    async def set_onleave(self, interaction, user_rsn: str, is_onleave: bool):
-        # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-            return
-            
-        await interaction.response.defer()
-        
-        await self.update_member(interaction, user_rsn, "on_leave", is_onleave)
-        await interaction.followup.send(f'{user_rsn} on_leave flag set to {is_onleave}')
-
     # TODO
     # @loop(seconds=90)
     async def update_disc_roles(self):

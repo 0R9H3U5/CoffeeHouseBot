@@ -29,12 +29,26 @@ class Dev(commands.Cog):
         # Path to credentials file
         self.CREDENTIALS_PATH = 'credentials.json'
 
+    async def check_leaders_category(self, interaction: discord.Interaction) -> bool:
+        """
+        Check if the command is being used in a channel within the LEADERS category
+        """
+        return await self.bot.get_cog("InterCogs").check_category(
+            interaction,
+            "LEADERS"
+        )
+
     @app_commands.command(name="db_status", description="Check the database connection status (dev only)")
     @commands.is_owner()
     async def db_status(self, interaction: discord.Interaction):
+        if not await self.check_leaders_category(interaction):
+            return
+            
         # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        if not await self.bot.get_cog("InterCogs").check_permissions(
+            interaction,
+            required_permissions=['administrator']
+        ):
             return
             
         await interaction.response.defer()
@@ -62,38 +76,7 @@ class Dev(commands.Cog):
                 await interaction.followup.send("❌ Database connection is not active. Check the logs for more information.", ephemeral=True)
                 
         except Exception as e:
-            await interaction.followup.send(f"❌ Error checking database status: {str(e)}", ephemeral=True)
-
-    def format_sql_array(self, input_string):
-        """Format a comma-separated string as a PostgreSQL array.
-        
-        Args:
-            input_string: A string that may contain comma-separated values
-            
-        Returns:
-            A string representing a PostgreSQL array or 'NULL' if the input is empty
-        """
-        if not input_string:
-            return "NULL"
-            
-        # Handle the case where input_string is already a list
-        if isinstance(input_string, list):
-            parts = [part.strip() for part in input_string if part and part.strip()]
-        else:
-            # Split by comma and clean up
-            parts = [part.strip() for part in input_string.split(',') if part.strip()]
-            
-        if not parts:
-            return "NULL"
-        
-        # Create the array string without using nested f-strings
-        quoted_parts = []
-        for part in parts:
-            # Escape single quotes in the part
-            escaped_part = part.replace("'", "''")
-            quoted_parts.append(f"'{escaped_part}'")
-        
-        return f"ARRAY[{', '.join(quoted_parts)}]"
+            await self.bot.get_cog("InterCogs").handle_error(interaction, e)
 
     @app_commands.command(name="load_member_data", description="Load member data from a Google Sheet (dev only)")
     @app_commands.describe(
@@ -108,9 +91,14 @@ class Dev(commands.Cog):
         sheet_name: str = "Member Data - Active", 
         range: str = "B5:P141"
     ):
+        if not await self.check_leaders_category(interaction):
+            return
+            
         # Check if user has admin permissions
-        if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+        if not await self.bot.get_cog("InterCogs").check_permissions(
+            interaction,
+            required_permissions=['administrator']
+        ):
             return
             
         await interaction.response.defer()
@@ -276,9 +264,9 @@ class Dev(commands.Cog):
                             if discord_id and discord_id.strip().upper() == "N/A":
                                 discord_id = None
                             
-                            # Format arrays for PostgreSQL
-                            previous_rsn_array = self.format_sql_array(previous_rsn)
-                            alt_rsn_array = self.format_sql_array(alt_rsn)
+                            # Format arrays for PostgreSQL using the common function
+                            previous_rsn_array = self.bot.get_cog("InterCogs").format_sql_array(previous_rsn)
+                            alt_rsn_array = self.bot.get_cog("InterCogs").format_sql_array(alt_rsn)
                             
                             # Debug output for array formatting
                             print(f"RSN: {rsn}, Previous RSN: {previous_rsn}, Formatted: {previous_rsn_array}")
