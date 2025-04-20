@@ -336,4 +336,50 @@ async def test_update_profile_exception(mock_bot, mock_interaction):
     mock_interaction.response.send_message.assert_called_once_with(
         "An error occurred while updating your profile: Database error",
         ephemeral=True
+    )
+
+# Test the update_member command with admin user
+@pytest.mark.asyncio
+async def test_update_member_admin(mock_bot, mock_interaction):
+    # Create a User cog with the mock bot
+    user_cog = User(mock_bot)
+    
+    # Mock the execute_query method
+    mock_bot.execute_query = MagicMock(return_value=True)
+    
+    # Access the callback function directly
+    callback = user_cog.update_member.callback
+    
+    # Call the callback function directly
+    await callback(user_cog, mock_interaction, "TestUser", "active", "true")
+    
+    # Verify that defer was called
+    mock_interaction.response.defer.assert_called_once()
+    
+    # Verify that followup.send was called with the success message
+    mock_interaction.followup.send.assert_called_once_with(
+        'Updated user TestUser. Key active set to value true.'
+    )
+
+# Test the set_active command with admin user
+@pytest.mark.asyncio
+async def test_set_active_admin(mock_bot, mock_interaction):
+    # Create a User cog with the mock bot
+    user_cog = User(mock_bot)
+    
+    # Mock the execute_query method
+    mock_bot.execute_query = MagicMock(return_value=True)
+    
+    # Access the callback function directly
+    callback = user_cog.set_active.callback
+    
+    # Call the callback function directly
+    await callback(user_cog, mock_interaction, "TestUser", True)
+    
+    # Verify that defer was called
+    mock_interaction.response.defer.assert_called_once()
+    
+    # Verify that followup.send was called with the success message
+    mock_interaction.followup.send.assert_called_once_with(
+        'Updated user TestUser. Key active set to value true.'
     ) 

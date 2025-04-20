@@ -3,6 +3,7 @@ import discord
 from unittest.mock import AsyncMock, MagicMock, patch
 import sys
 import os
+import datetime
 
 # Add the parent directory to the path so we can import the cogs
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -407,3 +408,118 @@ def test_split_user_list_with_members():
         assert "Discord:" in chunk
         assert "Showing" in chunk  # Check for the chunk indicator
         assert "of 100 members" in chunk  # Check for the total count 
+
+# Test the view_member command with admin user
+@pytest.mark.asyncio
+async def test_view_member_admin(mock_bot, mock_interaction):
+    # Create a UserLookup cog with the mock bot
+    user_lookup_cog = UserLookup(mock_bot)
+    
+    # Mock the selectOne method to return the expected data
+    mock_bot.selectOne = MagicMock(return_value=(
+        1,  # _id
+        "TestUser",  # rsn
+        None,  # discord_id_num
+        "123456789",  # discord_id
+        1,  # membership_level
+        datetime.datetime.now().date(),  # join_date
+        None,  # special_status
+        ["OldRSN1", "OldRSN2"],  # previous_rsn
+        ["Alt1", "Alt2"],  # alt_rsn
+        True,  # on_leave
+        True,  # active
+        100,  # skill_comp_pts
+        50,  # skill_comp_pts_life
+        50,  # boss_comp_pts
+        25,  # boss_comp_pts_life
+        "US",  # loc
+        "EST",  # timezone
+        "Some notes"  # notes
+    ))
+    
+    # Mock the selectMany method to return the expected column names in the same order as selectOne
+    mock_bot.selectMany = MagicMock(return_value=[
+        ("_id",),
+        ("rsn",),
+        ("discord_id_num",),
+        ("discord_id",),
+        ("membership_level",),
+        ("join_date",),
+        ("special_status",),
+        ("previous_rsn",),
+        ("alt_rsn",),
+        ("on_leave",),
+        ("active",),
+        ("skill_comp_pts",),
+        ("skill_comp_pts_life",),
+        ("boss_comp_pts",),
+        ("boss_comp_pts_life",),
+        ("loc",),
+        ("timezone",),
+        ("notes",)
+    ])
+    
+    # Mock the followup.send method to return a value
+    mock_interaction.followup.send = AsyncMock(return_value=None)
+    
+    # Access the callback function directly
+    callback = user_lookup_cog.view_member.callback
+    
+    # Call the callback function directly
+    await callback(user_lookup_cog, mock_interaction, "TestUser")
+    
+    # Verify that defer was called
+    mock_interaction.response.defer.assert_called_once()
+    
+    # Verify that followup.send was called with an embed
+    mock_interaction.followup.send.assert_called_once()
+    call_args = mock_interaction.followup.send.call_args
+    
+    # Check that the first argument is an embed
+    assert isinstance(call_args[1]['embed'], discord.Embed)
+    embed = call_args[1]['embed']
+    
+    # Verify the embed properties
+    assert embed.title == "Member Information: TestUser"
+    assert embed.color == discord.Color.blue()
+    
+    # Check that the footer contains the user's name
+    assert "TestUser" in embed.footer.text
+    
+    # Check that the fields contain the expected information
+    field_names = [field.name for field in embed.fields]
+    assert "RSN" in field_names
+    assert "Discord ID" in field_names
+    assert "Membership Level" in field_names
+    assert "Next Promotion Date" in field_names
+    assert "Competition Points" in field_names
+    assert "On Leave" in field_names
+    assert "Active" in field_names
+    assert "Alt RSNs" in field_names
+    assert "Previous RSNs" in field_names
+    assert "Other Notes" in field_names
+
+# Test the view_member command with non-admin user
+@pytest.mark.asyncio
+async def test_view_member_non_admin(mock_bot):
+    # Create a UserLookup cog with the mock bot
+    user_lookup_cog = UserLookup(mock_bot)
+    
+    # Create a mock interaction without admin permissions
+    interaction = AsyncMock()
+    interaction.user = MagicMock()
+    interaction.user.guild_permissions = MagicMock()
+    interaction.user.guild_permissions.administrator = False
+    interaction.response = AsyncMock()
+    
+    # Access the callback function directly
+    callback = user_lookup_cog.view_member.callback
+    
+    # Call the callback function directly
+    await callback(user_lookup_cog, interaction, "TestUser")
+    
+    # Verify that the user was told they don't have permission
+    interaction.response.send_message.assert_called_once_with(
+        "You don't have permission to use this command.",
+        ephemeral=True
+    ) 

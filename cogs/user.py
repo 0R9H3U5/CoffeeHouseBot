@@ -96,6 +96,44 @@ class User(commands.Cog):
                 f"An error occurred while updating your profile: {str(e)}",
                 ephemeral=True
             )
+    
+    
+
+    @app_commands.command(name="update-member", description="Update an existing member (admin only)")
+    async def update_member(self, interaction, user_rsn: str, update_key: str, update_value: str):
+        # Check if user has admin permissions
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+            return
+            
+        await interaction.response.defer()
+        
+        # Only allow updates on certain keys, this prevents new keys from being added
+        print(f'Updating user {user_rsn}. Key {update_key} will be set to value {update_value}.')
+        if update_key == "join_date":
+            update_value = datetime.datetime.strptime(update_value, self.bot.getConfigValue("datetime_fmt"))
+        self.bot.execute_query(f"UPDATE member SET {update_key}={update_value} WHERE rsn ILIKE '{user_rsn}'")
+        await interaction.followup.send(f'Updated user {user_rsn}. Key {update_key} set to value {update_value}.')
+
+    @app_commands.command(name="set-active", description="Mark a member as active or inactive (admin only)")
+    async def set_active(self, interaction, user_rsn: str, is_active: bool):
+        # Check if user has admin permissions
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+            return
+
+        # Call the update_member callback function
+        await self.update_member.callback(self, interaction, user_rsn, "active", str(is_active).lower())
+
+    @app_commands.command(name="set-onleave", description="Mark a member as on leave or returned (admin only)")
+    async def set_onleave(self, interaction, user_rsn: str, is_onleave: bool):
+        # Check if user has admin permissions
+        if not interaction.user.guild_permissions.administrator:
+            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
+            return
+            
+        # Call the update_member callback function
+        await self.update_member.callback(self, interaction, user_rsn, "on_leave", str(is_onleave).lower())
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(User(bot)) 
