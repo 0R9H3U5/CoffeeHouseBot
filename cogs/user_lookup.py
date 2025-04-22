@@ -4,6 +4,7 @@ from discord import app_commands
 import datetime
 import sys
 import os
+from cogs.base_cog import log_command
 
 # Add the parent directory to the path so we can import the cogs
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -46,6 +47,7 @@ class UserLookup(commands.Cog):
             await interaction.followup.send(f'```\n{formatted_output}```')
 
     @app_commands.command(name="view-member", description="View member info by RSN (admin only)")
+    @log_command
     async def view_member(self, interaction, user_rsn: str):
         # Check if user has admin permissions
         if not interaction.user.guild_permissions.administrator:

@@ -8,6 +8,7 @@ from enum import Enum
 import discord
 from typing import Optional, Union, Literal, List, Any
 import logging
+from cogs.base_cog import log_command
 
 log = logging.getLogger('discord')
 
@@ -187,6 +188,7 @@ class Competition(commands.Cog):
     
     @app_commands.command(name="comp-points", description="Fetch the competition points for the user")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
+    @log_command
     async def comp_points(self, interaction, comp_type: CompetitionType):
         if not await self.check_events_category(interaction):
             return
@@ -201,6 +203,7 @@ class Competition(commands.Cog):
 
     @app_commands.command(name="comp-leaderboard", description="Show the competition points leaderboard")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
+    @log_command
     async def comp_leaderboard(self, interaction, comp_type: CompetitionType):
         if not await self.check_events_category(interaction):
             return
@@ -308,6 +311,7 @@ class Competition(commands.Cog):
         third_place="RSN of third place"
     )
     @app_commands.default_permissions(administrator=True)
+    @log_command
     async def comp_update(self, interaction, comp_type: CompetitionType, comp_id: int, winner: str, second_place: str, third_place: str):
         if not await self.check_events_category(interaction):
             return
@@ -407,6 +411,7 @@ class Competition(commands.Cog):
         await interaction.followup.send(history)
 
     @app_commands.command(name="comp-status", description="Check the status of the current competition")
+    @log_command
     async def comp_status(self, interaction):
         if not await self.check_events_category(interaction):
             return
@@ -511,6 +516,7 @@ class Competition(commands.Cog):
 
     @app_commands.command(name="get-recent-comp-metrics", description="Show the metrics of recent competitions")
     @app_commands.describe(comp_type="The type of competition (skill or boss)")
+    @log_command
     async def get_recent_comp_metrics(self, interaction, comp_type: CompetitionType):
         if not await self.check_events_category(interaction):
             return

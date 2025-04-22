@@ -80,3 +80,22 @@ CREATE TABLE lottery_entries
         FOREIGN KEY(member_id)
         REFERENCES member(_id)
 );
+
+CREATE TABLE command_usage
+(
+    usage_id SERIAL PRIMARY KEY,
+    command_name varchar(50) NOT NULL,
+    member_id bigint,
+    channel_id bigint NOT NULL,
+    guild_id bigint NOT NULL,
+    timestamp timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    success boolean NOT NULL DEFAULT true,
+    error_message text,
+    CONSTRAINT fk_member_id
+        FOREIGN KEY(member_id)
+        REFERENCES member(_id)
+);
+
+CREATE INDEX idx_command_usage_timestamp ON command_usage(timestamp);
+CREATE INDEX idx_command_usage_command ON command_usage(command_name);
+CREATE INDEX idx_command_usage_member ON command_usage(member_id);

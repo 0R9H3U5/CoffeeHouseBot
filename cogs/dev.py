@@ -15,6 +15,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import pickle
 import asyncio
+from cogs.base_cog import log_command
 
 class Dev(commands.Cog):
     """
@@ -84,6 +85,7 @@ class Dev(commands.Cog):
         sheet_name="The name of the sheet/tab to read from",
         range="The range to read (e.g., 'A1:D100')"
     )
+    @log_command
     async def load_member_data(
         self, 
         interaction: discord.Interaction, 
