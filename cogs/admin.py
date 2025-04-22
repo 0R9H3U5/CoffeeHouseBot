@@ -24,7 +24,7 @@ class Admin(commands.Cog):
         """
         Check if the command is being used in a channel within the LEADERS category
         """
-        return await self.bot.get_cog("InterCogs").check_category(
+        return await self.bot.get_cog("BaseCog").check_category(
             interaction,
             "LEADERS"
         )
@@ -111,7 +111,7 @@ class Admin(commands.Cog):
             return
             
         # Check if user has admin permissions
-        if not await self.bot.get_cog("InterCogs").check_permissions(
+        if not await self.bot.get_cog("BaseCog").check_permissions(
             interaction,
             required_permissions=['administrator']
         ):
@@ -175,7 +175,7 @@ class Admin(commands.Cog):
             return
             
         # Check if user has admin permissions
-        if not await self.bot.get_cog("InterCogs").check_permissions(
+        if not await self.bot.get_cog("BaseCog").check_permissions(
             interaction,
             required_permissions=['administrator']
         ):

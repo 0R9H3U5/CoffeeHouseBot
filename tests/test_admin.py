@@ -121,11 +121,11 @@ async def test_shutdown_admin(mock_bot, mock_interaction):
     # Mock the bot's close method
     mock_bot.close = AsyncMock()
 
-    # Mock the InterCogs cog and its check_category method
-    mock_intercogs = AsyncMock()
-    mock_intercogs.check_category.return_value = True
-    mock_intercogs.check_permissions.return_value = True
-    mock_bot.get_cog.return_value = mock_intercogs
+    # Mock the BaseCog cog and its check_category method
+    mock_basecog = AsyncMock()
+    mock_basecog.check_category.return_value = True
+    mock_basecog.check_permissions.return_value = True
+    mock_bot.get_cog.return_value = mock_basecog
 
     # Mock sys.exit
     with patch('sys.exit') as mock_exit:

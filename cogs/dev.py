@@ -19,7 +19,7 @@ from cogs.base_cog import log_command
 
 class Dev(commands.Cog):
     """
-    Logic for development and debugging commands
+    Logic for all development command handling
     """
     def __init__(self, bot):
         self.bot = bot
@@ -34,7 +34,7 @@ class Dev(commands.Cog):
         """
         Check if the command is being used in a channel within the LEADERS category
         """
-        return await self.bot.get_cog("InterCogs").check_category(
+        return await self.bot.get_cog("BaseCog").check_category(
             interaction,
             "LEADERS"
         )
@@ -46,7 +46,7 @@ class Dev(commands.Cog):
             return
             
         # Check if user has admin permissions
-        if not await self.bot.get_cog("InterCogs").check_permissions(
+        if not await self.bot.get_cog("BaseCog").check_permissions(
             interaction,
             required_permissions=['administrator']
         ):
@@ -77,35 +77,32 @@ class Dev(commands.Cog):
                 await interaction.followup.send("❌ Database connection is not active. Check the logs for more information.", ephemeral=True)
                 
         except Exception as e:
-            await self.bot.get_cog("InterCogs").handle_error(interaction, e)
+            await self.bot.get_cog("BaseCog").handle_error(interaction, e)
 
-    @app_commands.command(name="load_member_data", description="Load member data from a Google Sheet (dev only)")
+    @app_commands.command(name="load-member-data", description="Load member data from Google Sheet (leaders only)")
     @app_commands.describe(
-        sheet_id="The ID of the Google Sheet (from the URL)",
-        sheet_name="The name of the sheet/tab to read from",
-        range="The range to read (e.g., 'A1:D100')"
+        sheet_id="The ID of the Google Sheet",
+        sheet_name="The name of the sheet to load",
+        range="The range of cells to load (e.g. A1:Z100)"
     )
     @log_command
-    async def load_member_data(
-        self, 
-        interaction: discord.Interaction, 
-        sheet_id: str, 
-        sheet_name: str = "Member Data - Active", 
-        range: str = "B5:P141"
-    ):
+    async def load_member_data(self, interaction: discord.Interaction, sheet_id: str, sheet_name: str, range: str):
         if not await self.check_leaders_category(interaction):
             return
             
-        # Check if user has admin permissions
-        if not await self.bot.get_cog("InterCogs").check_permissions(
+        # Check if user has leader permissions
+        if not await self.bot.get_cog("BaseCog").check_permissions(
             interaction,
-            required_permissions=['administrator']
+            required_roles=['Leader']
         ):
             return
             
         await interaction.response.defer()
         
         try:
+            # Format the range for SQL
+            sql_range = self.bot.get_cog("BaseCog").format_sql_array(range)
+            
             # Check if credentials file exists
             if not os.path.exists(self.CREDENTIALS_PATH):
                 await interaction.followup.send(
@@ -267,8 +264,8 @@ class Dev(commands.Cog):
                                 discord_id = None
                             
                             # Format arrays for PostgreSQL using the common function
-                            previous_rsn_array = self.bot.get_cog("InterCogs").format_sql_array(previous_rsn)
-                            alt_rsn_array = self.bot.get_cog("InterCogs").format_sql_array(alt_rsn)
+                            previous_rsn_array = self.bot.get_cog("BaseCog").format_sql_array(previous_rsn)
+                            alt_rsn_array = self.bot.get_cog("BaseCog").format_sql_array(alt_rsn)
                             
                             # Debug output for array formatting
                             print(f"RSN: {rsn}, Previous RSN: {previous_rsn}, Formatted: {previous_rsn_array}")

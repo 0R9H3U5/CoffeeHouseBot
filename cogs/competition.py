@@ -163,7 +163,7 @@ class Competition(commands.Cog):
         """
         Check if the command is being used in a channel within the EVENTS & COMPETITIONS category
         """
-        return await self.bot.get_cog("InterCogs").check_category(
+        return await self.bot.get_cog("BaseCog").check_category(
             interaction,
             "EVENTS & COMPETITIONS"
         )
@@ -374,7 +374,7 @@ class Competition(commands.Cog):
                 )
                 
         except Exception as e:
-            await self.bot.get_cog("InterCogs").handle_error(interaction, e)
+            await self.bot.get_cog("BaseCog").handle_error(interaction, e)
 
     def get_competitions(self, comp_type: CompetitionType, limit=10):
         """
