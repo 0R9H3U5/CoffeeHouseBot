@@ -30,7 +30,7 @@ class Cogsmanager(commands.Cog, name="cogsmanager"):
         """
         Check if the command is being used in a channel within the LEADERS category
         """
-        return await self.bot.get_cog("InterCogs").check_category(
+        return await self.bot.get_cog("BaseCog").check_category(
             ctx,
             "LEADERS"
         )
@@ -153,7 +153,7 @@ class Cogsmanager(commands.Cog, name="cogsmanager"):
             await self.bot.tree.sync()
             await ctx.send("✅ Commands have been synced.")
         except Exception as e:
-            await self.bot.get_cog("InterCogs").handle_error(ctx, e)
+            await self.bot.get_cog("BaseCog").handle_error(ctx, e)
 
     @commands.command()
     @commands.is_owner()

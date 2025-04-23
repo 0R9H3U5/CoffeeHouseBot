@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from typing import Optional
 from enum import Enum
+from cogs.base_cog import log_command
 
 class ProfileField(Enum):
     PREVIOUS_RSN = "previous_rsn"
@@ -100,6 +101,7 @@ class User(commands.Cog):
     
 
     @app_commands.command(name="update-member", description="Update an existing member (admin only)")
+    @log_command
     async def update_member(self, interaction, user_rsn: str, update_key: str, update_value: str):
         # Check if user has admin permissions
         if not interaction.user.guild_permissions.administrator:
@@ -116,6 +118,7 @@ class User(commands.Cog):
         await interaction.followup.send(f'Updated user {user_rsn}. Key {update_key} set to value {update_value}.')
 
     @app_commands.command(name="set-active", description="Mark a member as active or inactive (admin only)")
+    @log_command
     async def set_active(self, interaction, user_rsn: str, is_active: bool):
         # Check if user has admin permissions
         if not interaction.user.guild_permissions.administrator:
@@ -126,6 +129,7 @@ class User(commands.Cog):
         await self.update_member.callback(self, interaction, user_rsn, "active", str(is_active).lower())
 
     @app_commands.command(name="set-onleave", description="Mark a member as on leave or returned (admin only)")
+    @log_command
     async def set_onleave(self, interaction, user_rsn: str, is_onleave: bool):
         # Check if user has admin permissions
         if not interaction.user.guild_permissions.administrator:
