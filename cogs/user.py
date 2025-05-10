@@ -4,6 +4,7 @@ from discord.ext import commands
 from typing import Optional
 from enum import Enum
 from cogs.base_cog import log_command
+import datetime
 
 class ProfileField(Enum):
     PREVIOUS_RSN = "previous_rsn"
@@ -59,10 +60,10 @@ class User(commands.Cog):
                 value = value.upper()
 
             # Check if user exists in member table
-            user = self.bot.selectOne(f"""
-                SELECT _id FROM member
-                WHERE discord_id_num = {interaction.user.id}
-            """)
+            user = self.bot.selectOne(
+                "SELECT _id FROM member WHERE discord_id_num = %s",
+                (interaction.user.id,)
+            )
 
             if not user:
                 await interaction.response.send_message(
@@ -72,11 +73,10 @@ class User(commands.Cog):
                 return
 
             # Execute update
-            self.bot.execute_query(f"""
-                UPDATE member
-                SET {field.value} = '{value}'
-                WHERE discord_id_num = {interaction.user.id}
-            """)
+            self.bot.execute_query(
+                "UPDATE member SET %s = %s WHERE discord_id_num = %s",
+                (field.value, value, interaction.user.id)
+            )
 
             # Create response embed
             embed = discord.Embed(
@@ -114,7 +114,10 @@ class User(commands.Cog):
         print(f'Updating user {user_rsn}. Key {update_key} will be set to value {update_value}.')
         if update_key == "join_date":
             update_value = datetime.datetime.strptime(update_value, self.bot.getConfigValue("datetime_fmt"))
-        self.bot.execute_query(f"UPDATE member SET {update_key}={update_value} WHERE rsn ILIKE '{user_rsn}'")
+        self.bot.execute_query(
+            "UPDATE member SET %s = %s WHERE rsn ILIKE %s",
+            (update_key, update_value, user_rsn)
+        )
         await interaction.followup.send(f'Updated user {user_rsn}. Key {update_key} set to value {update_value}.')
 
     @app_commands.command(name="set-active", description="Mark a member as active or inactive (admin only)")

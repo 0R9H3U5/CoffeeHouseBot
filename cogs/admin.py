@@ -136,26 +136,25 @@ class Admin(commands.Cog):
                 period_name = "All Time"
             
             # Query command usage statistics
-            query = f"""
+            query = """
                 SELECT 
                     command_name,
                     COUNT(*) as usage_count,
                     SUM(CASE WHEN success THEN 1 ELSE 0 END) as success_count,
                     SUM(CASE WHEN NOT success THEN 1 ELSE 0 END) as failure_count
                 FROM command_usage
-                WHERE timestamp >= '{start_date}'
+                WHERE timestamp >= %s
                 GROUP BY command_name
                 ORDER BY usage_count DESC
             """
+            stats = self.bot.selectMany(query, (start_date,))
             
-            results = self.bot.selectMany(query)
-            
-            if not results:
+            if not stats:
                 await interaction.followup.send(f"No command usage data found for the {period_name.lower()}.")
                 return
             
             # Split results into pages
-            pages = self.split_command_stats(results, period_name)
+            pages = self.split_command_stats(stats, period_name)
             
             # Send each page
             for i, page in enumerate(pages, 1):

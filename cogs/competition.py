@@ -86,68 +86,27 @@ class CompetitionModal(Modal, title="Add New Competition"):
             
             # Insert the new competition
             success = self.competition_cog.bot.execute_query(
-                f"INSERT INTO competition (comp_id, comp_name, comp_type, metric, start_date, end_date) "
-                f"VALUES ({next_id}, '{name}', '{self.comp_type.value}', '{metric}', '{start_date}', '{end_date}')"
+                """
+                INSERT INTO competition (comp_id, comp_name, comp_type, metric, start_date, end_date)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (next_id, name, self.comp_type.value, metric, start_date, end_date)
             )
             
-            if success:                
-                try:
-                    await self.competition_cog.bot.wom_client.start()
-                    # Use the bot's WOM client
-                    # Convert the metric string to a WOM Metric enum
-                    wom_metric = None
-                    metric_lower = metric.lower().replace(" ", "_")
-                    
-                    # Try to find a matching metric
-                    for metric_enum in wom.Metric:
-                        if metric_enum.value == metric_lower:
-                            wom_metric = metric_enum
-                            break
-                    
-                    # If no match found, try to find a partial match
-                    if wom_metric is None:
-                        for metric_enum in wom.Metric:
-                            if metric_lower in metric_enum.value or metric_enum.value in metric_lower:
-                                wom_metric = metric_enum
-                                break
-                    
-                    # If still no match, default to Slayer
-                    if wom_metric is None:
-                        await interaction.followup.send("❌ Invalid metric for WOM competition.", ephemeral=True)
-                        return
-        
-                    result = await self.competition_cog.bot.wom_client.competitions.create_competition(
-                        title=name,
-                        metric=wom_metric,
-                        starts_at=start,
-                        ends_at=end,
-                        group_id=self.competition_cog.bot.getConfigValue("wom_group_id"),
-                        group_verification_code=self.competition_cog.bot.getConfigValue("wom_verification_code")
-                    )
-
-                    if result.is_ok:
-                        embed = discord.Embed(
-                            title=f"✅ Added new {self.competition_cog.get_comp_name(self.comp_type)} competition",
-                            description=f"**Name:** {name}\n"
-                            f"**Metric:** {metric}\n"
-                            f"**Start (UTC):** {start_date}\n"
-                            f"**End (UTC):** {end_date}",
-                            color=discord.Color.gold()
-                        )
-                        await interaction.followup.send(embed=embed)
-                        await self.competition_cog.bot.wom_client.close()
-                    else:
-                        await self.competition_cog.bot.wom_client.close()
-                        await interaction.followup.send("❌ Failed to create WOM competition.", ephemeral=True)
-                except Exception as e:
-                    await self.competition_cog.bot.wom_client.close()
-                    await interaction.followup.send(f"❌ Error creating WOM competition: {str(e)}", ephemeral=True)
+            if success:
+                await interaction.followup.send(
+                    f"✅ Successfully created new {self.comp_type.value} competition: {name}",
+                    ephemeral=True
+                )
             else:
-                await interaction.followup.send("❌ Failed to add competition.", ephemeral=True)
+                await interaction.followup.send(
+                    "❌ Failed to create competition. Please check the logs for more information.",
+                    ephemeral=True
+                )
                 
-        except ValueError:
+        except Exception as e:
             await interaction.followup.send(
-                "❌ Invalid date format. Please use YYYY-MM-DD HH:MM format in UTC.",
+                f"❌ Error creating competition: {str(e)}",
                 ephemeral=True
             )
 
@@ -324,7 +283,8 @@ class Competition(commands.Cog):
         try:
             # Get the competition details
             comp = self.bot.selectOne(
-                f"SELECT comp_name, comp_type FROM competition WHERE comp_id = {comp_id}"
+                "SELECT comp_name, comp_type FROM competition WHERE comp_id = %s",
+                (comp_id,)
             )
             
             if comp is None:
@@ -339,9 +299,18 @@ class Competition(commands.Cog):
                 return
                 
             # Get the member IDs for the winners
-            winner_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{winner}'")
-            second_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{second_place}'")
-            third_id = self.bot.selectOne(f"SELECT _id FROM member WHERE rsn ILIKE '{third_place}'")
+            winner_id = self.bot.selectOne(
+                "SELECT _id FROM member WHERE rsn ILIKE %s",
+                (winner,)
+            )
+            second_id = self.bot.selectOne(
+                "SELECT _id FROM member WHERE rsn ILIKE %s",
+                (second_place,)
+            )
+            third_id = self.bot.selectOne(
+                "SELECT _id FROM member WHERE rsn ILIKE %s",
+                (third_place,)
+            )
             
             if not winner_id or not second_id or not third_id:
                 await interaction.followup.send(
@@ -351,16 +320,17 @@ class Competition(commands.Cog):
                 return
                 
             # Update the competition with the winners
-            query = f"""
+            query = """
                 UPDATE competition 
-                SET winner_id = {winner_id[0]}, 
-                    second_place_id = {second_id[0]}, 
-                    third_place_id = {third_id[0]},
+                SET winner_id = %s, 
+                    second_place_id = %s, 
+                    third_place_id = %s,
                     updated_at = NOW()
-                WHERE comp_id = {comp_id}
+                WHERE comp_id = %s
             """
+            params = (winner_id[0], second_id[0], third_id[0], comp_id)
             
-            if self.bot.execute_query(query):
+            if self.bot.execute_query(query, params):
                 await interaction.followup.send(
                     f"✅ Successfully updated {comp[0]} with winners:\n"
                     f"1st: {winner}\n"
@@ -381,10 +351,14 @@ class Competition(commands.Cog):
         Get the most recent competitions
         """
         return self.bot.selectMany(
-            f"SELECT c.comp_id, c.comp_name, m.rsn, c.comp_type, c.end_date FROM competition c "
-            f"JOIN member m ON c.winner = m._id "
-            f"WHERE c.comp_type = '{comp_type.value}' "
-            f"ORDER BY c.comp_id DESC LIMIT {limit}"
+            """
+            SELECT c.comp_id, c.comp_name, m.rsn, c.comp_type, c.end_date 
+            FROM competition c
+            JOIN member m ON c.winner = m._id 
+            WHERE c.comp_type = %s
+            ORDER BY c.comp_id DESC LIMIT %s
+            """,
+            (comp_type.value, limit)
         )
         
     @app_commands.command(name="comp-history", description="Show the recent competition history")

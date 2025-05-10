@@ -225,20 +225,15 @@ class Applications(commands.Cog):
         return location, timezone
     
     def _check_existing_member(self, rsn: str, discord_id_num: int) -> tuple[bool, str]:
-        """Check if a member with the given RSN or Discord ID already exists in the database.
-        
-        Returns:
-            tuple[bool, str]: (exists, message) where exists is True if the member exists,
-            and message is a description of which identifier already exists.
-        """
+        """Check if a member with the given RSN or Discord ID already exists in the database."""
         # Check for existing RSN
-        rsn_query = f"SELECT rsn FROM member WHERE rsn ILIKE '{rsn}'"
-        rsn_result = self.bot.selectOne(rsn_query)
+        rsn_query = "SELECT rsn FROM member WHERE rsn ILIKE %s"
+        rsn_result = self.bot.selectOne(rsn_query, (rsn,))
         print(f"RSN Result: {rsn_result}")
         
         # Check for existing Discord ID
-        discord_query = f"SELECT discord_id_num FROM member WHERE discord_id_num = {discord_id_num}"
-        discord_result = self.bot.selectOne(discord_query)
+        discord_query = "SELECT discord_id_num FROM member WHERE discord_id_num = %s"
+        discord_result = self.bot.selectOne(discord_query, (discord_id_num,))
         print(f"Discord Result: {discord_result}")
         
         if rsn_result and discord_result:
@@ -291,56 +286,59 @@ class Applications(commands.Cog):
             join_date = datetime.datetime.now().strftime("%Y-%m-%d")
             
             # Insert the user into the database
-            query = f"""
-            INSERT INTO member (rsn, loc, timezone, discord_id, discord_id_num, join_date, membership_level, active, on_leave, 
-                              skill_comp_pts, skill_comp_pts_life, boss_comp_pts, boss_comp_pts_life,
-                              how_found_clan, favorite_activities, play_frequency, coffee_preference)
-            VALUES ('{rsn}', '{location}', '{timezone}', '{discord_id}', {discord_id_num}, '{join_date}', 0, true, false, 0, 0, 0, 0,
-                   '{how_found_clan}', '{favorite_activities}', '{play_frequency}', '{coffee_preference}')
+            query = """
+            INSERT INTO member (
+                rsn, loc, timezone, discord_id, discord_id_num, join_date, 
+                membership_level, active, on_leave, skill_comp_pts, 
+                skill_comp_pts_life, boss_comp_pts, boss_comp_pts_life,
+                how_found_clan, favorite_activities, play_frequency, coffee_preference
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, 0, true, false, 0, 0, 0, 0, %s, %s, %s, %s
+            )
             """
+            params = (
+                rsn, location, timezone, discord_id, discord_id_num, join_date,
+                how_found_clan, favorite_activities, play_frequency, coffee_preference
+            )
             
-            log.debug(f"Executing database query: {query}")
+            log.debug(f"Executing database query with params: {params}")
+            self.bot.execute_query(query, params)
             
-            if self.bot.execute_query(query):
-                log.info(f"Successfully added {rsn} to database")
-                
-                # Grant the Trial Member role
-                try:
-                    member = message.guild.get_member(message.author.id)
-                    if member:
-                        role = message.guild.get_role(self.trial_member_role_id)
-                        if role:
-                            log.debug(f"Adding role {role.name} to {member.name}")
-                            await member.add_roles(role)
-                            
-                            # Send confirmation message
-                            embed = discord.Embed(
-                                title="Application Accepted!",
-                                description=f"Welcome to the clan, {rsn}!",
-                                color=discord.Color.green()
-                            )
-                            embed.add_field(name="RSN", value=rsn, inline=True)
-                            embed.add_field(name="Location", value=location, inline=True)
-                            embed.add_field(name="Timezone", value=timezone, inline=True)
-                            embed.add_field(name="Join Date", value=join_date, inline=True)
-                            embed.add_field(name="Membership Level", value="Trial Member", inline=True)
-                            
-                            # Send the embed as a public message (not ephemeral)
-                            await interaction.followup.send(embed=embed, ephemeral=False)
-                            log.info(f"Application from {rsn} fully processed")
-                        else:
-                            log.error(f"Trial Member role not found (ID: {self.trial_member_role_id})")
-                            await interaction.followup.send(f"The application was processed, but I couldn't find the Trial Member role. Please contact an admin.", ephemeral=True)
+            log.info(f"Successfully added {rsn} to database")
+            
+            # Grant the Trial Member role
+            try:
+                member = message.guild.get_member(message.author.id)
+                if member:
+                    role = message.guild.get_role(self.trial_member_role_id)
+                    if role:
+                        log.debug(f"Adding role {role.name} to {member.name}")
+                        await member.add_roles(role)
+                        
+                        # Send confirmation message
+                        embed = discord.Embed(
+                            title="Application Accepted!",
+                            description=f"Welcome to the clan, {rsn}!",
+                            color=discord.Color.green()
+                        )
+                        embed.add_field(name="RSN", value=rsn, inline=True)
+                        embed.add_field(name="Location", value=location, inline=True)
+                        embed.add_field(name="Timezone", value=timezone, inline=True)
+                        embed.add_field(name="Join Date", value=join_date, inline=True)
+                        embed.add_field(name="Membership Level", value="Trial Member", inline=True)
+                        
+                        # Send the embed as a public message (not ephemeral)
+                        await interaction.followup.send(embed=embed, ephemeral=False)
+                        log.info(f"Application from {rsn} fully processed")
                     else:
-                        log.error(f"Member object not found for {message.author.name}")
-                        await interaction.followup.send(f"The application was processed, but I couldn't find the member object. Please contact an admin.", ephemeral=True)
-                except Exception as e:
-                    log.error(f"Error granting Trial Member role: {e}")
-                    await interaction.followup.send(f"The application was processed, but there was an error granting the role. Please contact an admin.", ephemeral=True)
-            else:
-                log.error(f"Database query failed for {rsn}")
-                await interaction.followup.send(f"There was an error processing the application. Please contact an admin.", ephemeral=True)
-                
+                        log.error(f"Trial Member role not found (ID: {self.trial_member_role_id})")
+                        await interaction.followup.send(f"The application was processed, but I couldn't find the Trial Member role. Please contact an admin.", ephemeral=True)
+                else:
+                    log.error(f"Member object not found for {message.author.name}")
+                    await interaction.followup.send(f"The application was processed, but I couldn't find the member object. Please contact an admin.", ephemeral=True)
+            except Exception as e:
+                log.error(f"Error granting Trial Member role: {e}")
+                await interaction.followup.send(f"The application was processed, but there was an error granting the role. Please contact an admin.", ephemeral=True)
         except Exception as e:
             log.error(f"Error processing application: {e}")
             try:
