@@ -21,7 +21,9 @@ class UserLookup(commands.Cog):
         await interaction.response.defer()
         
         print("list_members")
-        all_members = self.bot.selectMany("SELECT rsn, discord_id, alt_rsn, previous_rsn FROM member")        
+        all_members = self.bot.selectMany(
+            "SELECT rsn, discord_id, alt_rsn, previous_rsn FROM member"
+        )        
         
         # Check if we have any members
         if not all_members:
@@ -57,11 +59,16 @@ class UserLookup(commands.Cog):
         await interaction.response.defer()
         
         # Get column names from the database
-        columns = self.bot.selectMany("SELECT column_name FROM information_schema.columns WHERE table_name = 'member' ORDER BY ordinal_position")
+        columns = self.bot.selectMany(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'member' ORDER BY ordinal_position"
+        )
         column_names = [col[0] for col in columns]
         
         # Query the member data
-        user_data = self.bot.selectOne(f"SELECT * FROM member WHERE rsn ILIKE '{user_rsn}' OR '{user_rsn}' ILIKE ANY (alt_rsn);")
+        user_data = self.bot.selectOne(
+            "SELECT * FROM member WHERE rsn ILIKE %s OR %s ILIKE ANY (alt_rsn)",
+            (user_rsn, user_rsn)
+        )
         if user_data is None:
             await interaction.followup.send(f'No members found with rsn or alt of {user_rsn}')
             return

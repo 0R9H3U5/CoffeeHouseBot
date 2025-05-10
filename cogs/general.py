@@ -16,7 +16,10 @@ class General(commands.Cog):
         await interaction.response.defer()
         
         # Get user data from database
-        user = self.bot.selectOne(f"SELECT discord_id, membership_level, join_date FROM member WHERE discord_id_num={interaction.user.id}")
+        user = self.bot.selectOne(
+            "SELECT discord_id, membership_level, join_date FROM member WHERE discord_id_num = %s",
+            (interaction.user.id,)
+        )
         
         if not user:
             await interaction.followup.send(f"**{interaction.user.name}** you are not registered in our database.", ephemeral=True)

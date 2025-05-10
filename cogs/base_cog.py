@@ -29,32 +29,40 @@ def log_command(func):
             result = await func(self, interaction, *args, **kwargs)
             
             # Get the member's _id from the database
-            member = self.bot.selectOne(f"SELECT _id FROM member WHERE discord_id_num = {interaction.user.id}")
+            member = self.bot.selectOne(
+                "SELECT _id FROM member WHERE discord_id_num = %s",
+                (interaction.user.id,)
+            )
             member_id = member[0] if member else None
             
             # Log successful command usage
             self.bot.execute_query(
-                f"""
+                """
                 INSERT INTO command_usage 
                 (command_name, member_id, channel_id, guild_id, success, error_message)
-                VALUES ('{func.__name__}', {member_id}, {interaction.channel_id}, {interaction.guild_id}, true, NULL)
-                """
+                VALUES (%s, %s, %s, %s, true, NULL)
+                """,
+                (func.__name__, member_id, interaction.channel_id, interaction.guild_id)
             )
             
             return result
         except Exception as e:
             # Get the member's _id from the database
-            member = self.bot.selectOne(f"SELECT _id FROM member WHERE discord_id_num = {interaction.user.id}")
+            member = self.bot.selectOne(
+                "SELECT _id FROM member WHERE discord_id_num = %s",
+                (interaction.user.id,)
+            )
             member_id = member[0] if member else None
             
             # Log failed command usage
-            error_message = str(e).replace("'", "''")  # Escape single quotes for SQL
+            error_message = str(e)
             self.bot.execute_query(
-                f"""
+                """
                 INSERT INTO command_usage 
                 (command_name, member_id, channel_id, guild_id, success, error_message)
-                VALUES ('{func.__name__}', {member_id}, {interaction.channel_id}, {interaction.guild_id}, false, '{error_message}')
-                """
+                VALUES (%s, %s, %s, %s, false, %s)
+                """,
+                (func.__name__, member_id, interaction.channel_id, interaction.guild_id, error_message)
             )
             raise
     return wrapper

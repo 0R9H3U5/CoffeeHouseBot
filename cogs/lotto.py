@@ -96,11 +96,14 @@ class Lotto(commands.Cog):
     ):
         try:
             # Check if lottery exists and get its details
-            lottery = self.bot.selectOne(f"""
+            lottery = self.bot.selectOne(
+                """
                 SELECT start_date, end_date, winner_id
                 FROM lottery
-                WHERE lottery_id = {lottery_id}
-            """)
+                WHERE lottery_id = %s
+                """,
+                (lottery_id,)
+            )
             
             if not lottery:
                 await interaction.response.send_message(
@@ -126,11 +129,14 @@ class Lotto(commands.Cog):
                 return
             
             # Get all entries with their weights
-            entries = self.bot.selectMany(f"""
+            entries = self.bot.selectMany(
+                """
                 SELECT member_id, entries_purchased
                 FROM lottery_entries
-                WHERE lottery_id = {lottery_id}
-            """)
+                WHERE lottery_id = %s
+                """,
+                (lottery_id,)
+            )
             print(f"entries: {entries}")
             if not entries:
                 await interaction.response.send_message(
@@ -150,18 +156,24 @@ class Lotto(commands.Cog):
             winner_id = random.choice(weighted_entries)
             
             # Update lottery with winner
-            self.bot.execute_query(f"""
+            self.bot.execute_query(
+                """
                 UPDATE lottery
-                SET winner_id = {winner_id}
-                WHERE lottery_id = {lottery_id}
-            """)
+                SET winner_id = %s
+                WHERE lottery_id = %s
+                """,
+                (winner_id, lottery_id)
+            )
             
             # Get winner's member details
-            winner = self.bot.selectOne(f"""
+            winner = self.bot.selectOne(
+                """
                 SELECT rsn, discord_id
                 FROM member
-                WHERE _id = {winner_id}
-            """)
+                WHERE _id = %s
+                """,
+                (winner_id,)
+            )
             
             # Create embed for response
             embed = discord.Embed(

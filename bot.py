@@ -299,13 +299,13 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 print(f"Failed to reconnect to database: {reconnect_error}")
                 return False
 
-    def selectMany(self, query):
+    def selectMany(self, query, params=None):
         if not self.check_database_connection():
             print("Cannot execute query: No database connection")
             return None
         try:
             cursor = self.conn.cursor()
-            cursor.execute(query)
+            cursor.execute(query, params)
             result = cursor.fetchall()
             cursor.close()
             return result
@@ -318,13 +318,13 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 self.getDatabaseConnection()
             return None
     
-    def selectOne(self, query):
+    def selectOne(self, query, params=None):
         if not self.check_database_connection():
             print("Cannot execute query: No database connection")
             return None
         try:
             cursor = self.conn.cursor()
-            cursor.execute(query)
+            cursor.execute(query, params)
             result = cursor.fetchone()
             cursor.close()
             return result
@@ -337,13 +337,13 @@ class CoffeeHouseBot(commands.AutoShardedBot):
                 self.getDatabaseConnection()
             return None
             
-    def execute_query(self, query):
+    def execute_query(self, query, params=None):
         if not self.check_database_connection():
             print("Cannot execute query: No database connection")
             return None
         try:
             cursor = self.conn.cursor()
-            cursor.execute(query)
+            cursor.execute(query, params)
             self.conn.commit()
             cursor.close()
             return True
