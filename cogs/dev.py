@@ -401,6 +401,88 @@ class Dev(commands.Cog):
             print(f"Error building Google Sheets service: {e}")
             return None
 
+    @commands.command(name="match_disc_id_numbers")
+    @commands.is_owner()
+    async def match_disc_id_numbers(self, ctx):
+        """Match Discord IDs to their numeric values and update the database."""
+        if not await self.check_leaders_category(ctx):
+            return
+            
+        # Check if user has admin permissions
+        if not await self.bot.get_cog("BaseCog").check_permissions(
+            ctx,
+            required_permissions=['administrator']
+        ):
+            return
+            
+        await ctx.send("🔍 Starting Discord ID matching process...")
+        
+        try:
+            # Get all members with discord_id but no discord_id_num
+            members = self.bot.selectMany("""
+                SELECT _id, rsn, discord_id 
+                FROM member 
+                WHERE discord_id IS NOT NULL 
+                AND discord_id_num IS NULL
+            """)
+            
+            print(f"members: {members}")
+            if not members:
+                await ctx.send("✅ No members found needing Discord ID updates.")
+                return
+                
+            updated_count = 0
+            not_found_count = 0
+            error_count = 0
+            
+            # Get all members in the server
+            guild = ctx.guild
+            guild_members = guild.members
+            
+            for member in members:
+                try:
+                    print(f"member: {member}")
+                    discord_id = member[2]
+                    
+                    # Find matching member in the guild
+                    matching_member = None
+                    for guild_member in guild_members:
+                        print(f"guild_member: {guild_member}")
+                        print(f"guild_member.id: {guild_member.id}")
+                        if str(guild_member) == discord_id:
+                            matching_member = guild_member
+                            break
+                    
+                    if not matching_member:
+                        print(f"Could not find Discord user with ID {discord_id} in the server")
+                        not_found_count += 1
+                        continue
+                    
+                    # Update the database with the numeric ID
+                    self.bot.execute_query(f"""
+                        UPDATE member 
+                        SET discord_id_num = {matching_member.id}
+                        WHERE _id = {member[0]}
+                    """)
+                    
+                    updated_count += 1
+                    print(f"Updated member {member[1]} with Discord ID {matching_member.id}")
+                    
+                except Exception as e:
+                    print(f"Error processing member {member[1]}: {e}")
+                    error_count += 1
+            
+            # Send summary
+            summary = f"✅ Discord ID matching complete:\n"
+            summary += f"- Updated: {updated_count}\n"
+            summary += f"- Not Found: {not_found_count}\n"
+            summary += f"- Errors: {error_count}\n"
+            
+            await ctx.send(summary)
+            
+        except Exception as e:
+            await self.bot.get_cog("BaseCog").handle_error(ctx, e)
+
 async def setup(bot):
     # Add start_time attribute to bot for uptime tracking
     bot.start_time = datetime.datetime.now()
