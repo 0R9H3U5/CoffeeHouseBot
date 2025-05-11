@@ -175,7 +175,9 @@ class UserLookup(commands.Cog):
     async def list_onleave(self, interaction):
         await interaction.response.defer()
         
-        on_leave_members = self.bot.selectMany("SELECT rsn, discord_id, alt_rsn, previous_rsn FROM member WHERE on_leave=true")
+        on_leave_members = self.bot.selectMany(
+            "SELECT rsn, discord_id, alt_rsn, previous_rsn, on_leave_notes FROM member WHERE on_leave=true"
+        )
         
         # Check if we have any members
         if not on_leave_members:
@@ -255,6 +257,9 @@ class UserLookup(commands.Cog):
             else:
                 prev_rsn_str = "None"
             
+            # Get leave notes if they exist
+            leave_notes = mem[4] if len(mem) > 4 else None
+            
             # Format each member as a card-like entry
             output += f"** {rsn} **\n"
             output += f" Discord: {discord_id}\n"
@@ -264,6 +269,8 @@ class UserLookup(commands.Cog):
                 output += f" Alt RSNs: {alt_rsn_str}\n"
             if prev_rsn_str != "None":
                 output += f" Previous RSNs: {prev_rsn_str}\n"
+            if leave_notes:
+                output += f" Leave Note: {leave_notes}\n"
             
             # Add a separator between entries
             output += "\n"
@@ -378,6 +385,9 @@ class UserLookup(commands.Cog):
             else:
                 prev_rsn_str = "None"
             
+            # Get leave notes if they exist
+            leave_notes = mem[4] if len(mem) > 4 else None
+            
             # Format each member as a card-like entry
             member_entry = f"** {rsn} **\n"
             member_entry += f"   Discord: {discord_id}\n"
@@ -387,6 +397,8 @@ class UserLookup(commands.Cog):
                 member_entry += f"   Alt RSNs: {alt_rsn_str}\n"
             if prev_rsn_str != "None":
                 member_entry += f"   Previous RSNs: {prev_rsn_str}\n"
+            if leave_notes:
+                member_entry += f"   Leave Note: {leave_notes}\n"
             
             # Add a separator between entries
             member_entry += "\n"

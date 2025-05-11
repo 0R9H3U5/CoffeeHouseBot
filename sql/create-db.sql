@@ -15,6 +15,7 @@ CREATE TABLE member
   previous_rsn TEXT [],
   alt_rsn TEXT [],
   on_leave boolean,
+  on_leave_notes text,
   active boolean,
   skill_comp_pts integer,
   skill_comp_pts_life integer,
