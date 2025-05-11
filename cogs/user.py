@@ -142,5 +142,60 @@ class User(commands.Cog):
         # Call the update_member callback function
         await self.update_member.callback(self, interaction, user_rsn, "on_leave", str(is_onleave).lower())
 
+    @app_commands.command(name="temp-leave", description="Mark yourself as on temporary leave or returning from leave")
+    @app_commands.describe(
+        is_leaving="Set to true if going on leave, false if returning from leave",
+        note="Optional note about your leave (e.g. expected return date, reason)"
+    )
+    async def temp_leave(
+        self,
+        interaction: discord.Interaction,
+        is_leaving: bool,
+        note: Optional[str] = None
+    ):
+        try:
+            # Check if user exists in member table
+            user = self.bot.selectOne(
+                "SELECT _id, on_leave, on_leave_notes FROM member WHERE discord_id_num = %s",
+                (interaction.user.id,)
+            )
+
+            if not user:
+                await interaction.response.send_message(
+                    "You are not registered in the member database. Please contact an admin.",
+                    ephemeral=True
+                )
+                return
+
+            # If returning from leave, clear the notes
+            if not is_leaving:
+                note = None
+
+            # Update on_leave status and notes
+            self.bot.execute_query(
+                "UPDATE member SET on_leave = %s, on_leave_notes = %s WHERE discord_id_num = %s",
+                (is_leaving, note, interaction.user.id)
+            )
+
+            # Create response embed
+            embed = discord.Embed(
+                title="Leave Status Updated",
+                color=discord.Color.green()
+            )
+
+            status = "on temporary leave" if is_leaving else "returned from leave"
+            embed.add_field(name="Status", value=f"You are now {status}", inline=False)
+            
+            if note:
+                embed.add_field(name="Leave Note", value=note, inline=False)
+
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        except Exception as e:
+            await interaction.response.send_message(
+                f"An error occurred while updating your leave status: {str(e)}",
+                ephemeral=True
+            )
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(User(bot)) 
